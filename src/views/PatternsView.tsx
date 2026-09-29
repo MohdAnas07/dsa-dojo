@@ -21,14 +21,14 @@ export default function PatternsView() {
       <ClueGrid />
       <h2 style={{ marginTop: 10 }}>All patterns</h2>
       <div className="grid g2">{PATTERNS.map(p => {
-        const n = PROBLEMS.filter(x => x.pat === p.id);
+        const n = PROBLEMS.filter(x => x.pats.includes(p.id));
         return (
           <article key={p.id} className="card stack" id={p.id} style={{ scrollMarginTop: 70, gap: 10 }}>
             <div className="row" style={{ justifyContent: "space-between" }}><h3>{p.name}</h3>{TOPIC[p.topic] && <Link href={`/learn/${p.topic}`} style={{ fontSize: 13 }}>{LESSONS[p.topic] ? "Full lesson" : "Topic outline"} →</Link>}</div>
             <p className="muted" style={{ fontSize: 14.5 }}>{p.idea}</p>
             <div className="row" style={{ gap: 6 }}>{p.signals.map(s => <span key={s} className="pill">{s}</span>)}</div>
             <CodeBlock sample={p.tpl} run={false} title="Template" />
-            {n.length > 0 && <div style={{ fontSize: 13.5 }}><span className="faint">Practice:</span> {n.map((x, i) => <span key={x.id}>{i > 0 && ", "}<Link href={`/problems/${x.id}`}>{x.t}</Link></span>)}</div>}
+            {n.length > 0 && <div style={{ fontSize: 13.5 }}><span className="faint">Practice:</span> {n.slice(0, 6).map((x, i) => <span key={x.id}>{i > 0 && ", "}<Link href={`/problems/${x.id}`}>{x.t}</Link></span>)}{n.length > 6 && <> · <Link href={`/problems?pat=${p.id}`}>all {n.length} →</Link></>}</div>}
           </article>);
       })}</div>
     </div>

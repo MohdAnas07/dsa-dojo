@@ -31,7 +31,13 @@ export function ProblemRow({ p }: { p: Problem }) {
       <StatusButton id={p.id} title={p.t} />
       <div style={{ minWidth: 0 }}>
         <Link className="ttl" href={`/problems/${p.id}`}>{p.t}</Link>
-        <div className="meta"><span className={`pill ${p.d}`}>{DIFF[p.d]}</span><span className="pill">{PAT[p.pat]?.name || p.pat}</span><span className="pill B">{TOPIC[p.topic]?.title}</span><span className="faint hide-sm" style={{ fontSize: 12 }}>{p.co.slice(0, 3).join(" · ")}</span></div>
+        <div className="meta">
+          <span className={`pill ${p.d}`}>{DIFF[p.d]}</span>
+          {p.pats.slice(0, 2).map(x => <span key={x} className="pill">{PAT[x]?.name || x}</span>)}
+          {p.topics.slice(0, 3).map(x => <span key={x} className="pill B">{shortTitle(TOPIC[x]?.title || x)}</span>)}
+          {p.topics.length > 3 && <span className="faint" style={{ fontSize: 12 }}>+{p.topics.length - 3}</span>}
+          <span className="faint hide-sm" style={{ fontSize: 12 }}>{p.co.slice(0, 3).join(" · ")}</span>
+        </div>
       </div>
       <Link className="btn sm" href={`/problems/${p.id}`}>Solve →</Link>
     </div>

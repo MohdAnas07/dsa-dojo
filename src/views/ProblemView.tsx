@@ -32,7 +32,7 @@ export default function ProblemView({ id }: { id: string }) {
       }}>Start 10-min timer</button>{timer !== null && <span className="mono" style={{ color: "var(--accent)" }}>{Math.floor(timer / 60)}:{String(timer % 60).padStart(2, "0")}{timer <= 0 ? " · time's up, reveal Hint 1" : ""}</span>}</div></>],
     ["Hint 1", <p>{p.h[0]}</p>],
     ["Hint 2", <p>{p.h[1]}</p>],
-    ["Approach", <><p>{p.a}</p><p className="muted" style={{ marginTop: 8 }}>Pattern: <Link href={`/patterns#${p.pat}`}>{PAT[p.pat]?.name || p.pat}</Link> · Topic: <TopicLink slug={p.topic} /></p></>],
+    ["Approach", <><p>{p.a}</p><p className="muted" style={{ marginTop: 8 }}>Patterns: {p.pats.map((x, i) => <span key={x}>{i > 0 && ", "}<Link href={`/patterns#${x}`}>{PAT[x]?.name || x}</Link></span>)} · Topics: {p.topics.map((x, i) => <span key={x}>{i > 0 && ", "}<TopicLink slug={x} /></span>)}</p></>],
     ["Reference solution", <CodeBlock sample={p.c} expected={(expected.samples as Record<string, string>)[`problem.${id}`]} />],
     ["Complexity", <div className="row"><span className="pill">Time <b className="cx" style={{ marginLeft: 4 }}>{p.tc}</b></span><span className="pill">Space <b className="cx" style={{ marginLeft: 4 }}>{p.sc}</b></span></div>],
     ["Follow-up questions", <ul className="clean">{p.f.map(x => <li key={x}><span>{x}</span></li>)}</ul>]
@@ -40,9 +40,13 @@ export default function ProblemView({ id }: { id: string }) {
   return (
     <div className="stack">
       <div className="row"><Link href="/problems" className="faint" style={{ fontSize: 13 }}>← All problems</Link></div>
-      <div className="row"><span className={`pill ${p.d}`}>{DIFF[p.d]}</span><span className="pill">{PAT[p.pat]?.name}</span><span className="pill B">{TOPIC[p.topic].title}</span></div>
+      <div className="row" style={{ gap: 6 }}>
+        <span className={`pill ${p.d}`}>{DIFF[p.d]}</span>
+        {p.pats.map(x => <Link key={x} className="pill" href={`/problems?pat=${x}`} style={{ textDecoration: "none" }}>{PAT[x]?.name || x}</Link>)}
+        {p.topics.map(x => <Link key={x} className="pill B" href={`/learn/${x}`} style={{ textDecoration: "none" }}>{TOPIC[x]?.title || x}</Link>)}
+      </div>
       <h1>{p.t}</h1>
-      <div className="row faint" style={{ fontSize: 13 }}>Asked at: {p.co.join(", ")} · <a href={`https://leetcode.com/problems/${p.lc}/`} target="_blank" rel="noopener noreferrer">Open on LeetCode ↗</a></div>
+      <div className="row faint" style={{ fontSize: 13 }}>Commonly asked at: {p.co.join(", ")}{p.lc && <> · <a href={`https://leetcode.com/problems/${p.lc}/`} target="_blank" rel="noopener noreferrer">Open on LeetCode ↗</a></>}</div>
       <div className="statusset" role="group" aria-label="Status">
         {STATUS_ORDER.map(k => <button key={k} className={"btn sm" + (st === k ? " on" : "")} onClick={() => { update(x => { if (k === "todo") delete x.ps[id]; else x.ps[id] = k; }, { activity: true }); toast(`Marked ${STATUS[k][1].toLowerCase()}`); }}>{STATUS[k][0]} {STATUS[k][1]}</button>)}
         <span style={{ flex: 1 }} />
@@ -61,6 +65,22 @@ export default function ProblemView({ id }: { id: string }) {
               {i < open && <div className="step-b">{body}</div>}
             </div>
           ))}
+          <div className="card" style={{ marginTop: 6 }}>
+            <h3 style={{ marginBottom: 4 }}>This problem trains {p.topics.length + p.pats.length} skills</h3>
+            <p className="muted" style={{ fontSize: 13.5, marginBottom: 10 }}>Solving it counts as practice for every topic and pattern below.</p>
+            <div className="row" style={{ gap: 6 }}>
+              {p.topics.map(x => <Link key={x} className={"chip" + (s.done[x] ? " done" : "")} href={`/learn/${x}`}>{s.done[x] && <span className="ck">✓</span>}{TOPIC[x]?.title || x}</Link>)}
+              {p.pats.map(x => <Link key={x} className="chip" href={`/patterns#${x}`}><span className="faint mono" style={{ fontSize: 10.5 }}>PATTERN</span>{PAT[x]?.name || x}</Link>)}
+            </div>
+          </div>
+          {p.similar.length > 0 && <div className="card">
+            <h3 style={{ marginBottom: 10 }}>Similar problems</h3>
+            <div className="stack" style={{ gap: 8 }}>{p.similar.map(id => { const q = PROB[id]; if (!q) return null; const shared = q.pats.filter(x => p.pats.includes(x)).map(x => PAT[x]?.name); return (
+              <div key={id} className="row" style={{ justifyContent: "space-between", gap: 8 }}>
+                <span className="row" style={{ gap: 8 }}><span className={`pill ${q.d}`}>{DIFF[q.d]}</span><Link href={`/problems/${id}`}>{q.t}</Link>{s.ps[id] && <span className="faint mono" style={{ fontSize: 12 }}>{STATUS[s.ps[id]][0]}</span>}</span>
+                <span className="faint" style={{ fontSize: 12 }}>{shared.length ? "shares " + shared.join(", ") : "related topics"}</span>
+              </div>); })}</div>
+          </div>}
         </div>
         <div className="solve-col"><SolvePanel id={id} /></div>
       </div>

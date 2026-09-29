@@ -4,7 +4,14 @@ const jsType = (t: string) => (t === "cycle" ? "ListNode" : t === "ListNode" || 
 
 export function jsStarter(sp: JudgeSpec): string {
   if (sp.design) {
-    return `class ${sp.fn} {\n  constructor() {\n    \n  }\n\n  /** @param {number} val */\n  push(val) {\n    \n  }\n\n  pop() {\n    \n  }\n\n  /** @return {number} */\n  top() {\n    \n  }\n\n  /** @return {number} */\n  getMin() {\n    \n  }\n}\n`;
+    const doc = (ps: [string, string][], ret?: string) => {
+      const lines = [...ps.map(([n, t]) => ` @param {${jsType(t)}} ${n}`), ...(ret && ret !== "void" ? [` @return {${jsType(ret)}}`] : [])];
+      return lines.length ? `  /**\n${lines.map(l => "   *" + l).join("\n")}\n   */\n` : "";
+    };
+    const ctor = sp.ctor || [];
+    const tree = ctor.some(p => p[1] === "TreeNode") ? "// Provided: class TreeNode { val, left, right }\n\n" : "";
+    const methods = (sp.methods || []).map(m => `${doc(m.params, m.ret)}  ${m.name}(${m.params.map(p => p[0]).join(", ")}) {\n    \n  }\n`).join("\n");
+    return `${tree}class ${sp.fn} {\n${doc(ctor)}  constructor(${ctor.map(p => p[0]).join(", ")}) {\n    \n  }\n\n${methods}}\n`;
   }
   const list = sp.params.some(p => p[1] === "ListNode" || p[1] === "cycle") || sp.ret === "ListNode";
   const tree = sp.params.some(p => p[1] === "TreeNode") || sp.ret === "TreeNode";

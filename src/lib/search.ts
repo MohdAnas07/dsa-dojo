@@ -23,8 +23,8 @@ function build(): SearchItem[] {
     if (c) add("Cheat sheet", t.title + " cheat sheet", c.rev.s30, "/learn/" + t.slug + "#revision", [t.title, "cheat sheet revision", c.cheat].join(" "));
   });
   PATTERNS.forEach(p => add("Pattern", p.name, p.idea, "/patterns#" + p.id, [p.name, "pattern", p.signals.join(" "), p.idea].join(" ")));
-  PROBLEMS.forEach(p => add("Problem", p.t, `${DIFF[p.d]} · ${PAT[p.pat]?.name || p.pat} · ${TOPIC[p.topic]?.title}`, "/problems/" + p.id,
-    [p.t, "problem leetcode lc", DIFF[p.d], p.pat, PAT[p.pat]?.name, p.topic, p.co.join(" "), p.tc, p.s].join(" ")));
+  PROBLEMS.forEach(p => add("Problem", p.t, `${DIFF[p.d]} · ${p.pats.map(x => PAT[x]?.name || x).join(", ")} · ${p.topics.map(x => TOPIC[x]?.title || x).slice(0, 3).join(", ")}`, "/problems/" + p.id,
+    [p.t, "problem leetcode lc", DIFF[p.d], p.pats.join(" "), p.pats.map(x => PAT[x]?.name).join(" "), p.topics.join(" "), p.topics.map(x => TOPIC[x]?.title).join(" "), p.co.join(" "), p.tc, p.s].join(" ")));
   PAGES_INDEX.forEach(([t, d, href]) => add("Page", t, d, href, t + " " + d));
   return (idx as unknown as { k: string; t: string; d: string; href: string; text: string }[]).map(x => ({ k: x.k, t: x.t, d: x.d, href: x.href, low: x.text.toLowerCase().replace(/²/g, "^2"), tl: x.t.toLowerCase() }));
 }

@@ -29,6 +29,7 @@ function __in(type, v) {
   if (type === "ListNode") return __toList(v);
   if (type === "TreeNode") return __toTree(v);
   if (type === "cycle") return __cycle(v);
+  if (type === "ListNode[]") return v.map(__toList);
   return v === undefined ? v : JSON.parse(JSON.stringify(v));
 }
 function __out(type, v) {
@@ -40,7 +41,7 @@ function __runCase(fn, spec, args) {
   if (spec.design) {
     const ops = args[0], vals = args[1], out = []; let obj = null;
     for (let i = 0; i < ops.length; i++) {
-      if (i === 0) { obj = new fn(...vals[0]); out.push(null); continue; }
+      if (i === 0) { obj = new fn(...vals[0].map((v, j) => __in(spec.ctor && spec.ctor[j] ? spec.ctor[j][1] : "", v))); out.push(null); continue; }
       if (typeof obj[ops[i]] !== "function") throw new TypeError("Your class has no method " + ops[i] + "()");
       const r = obj[ops[i]](...vals[i]); out.push(r === undefined ? null : r);
     }
@@ -48,14 +49,15 @@ function __runCase(fn, spec, args) {
   }
   const a = spec.params.map((p, i) => __in(p[1], args[i]));
   const r = fn(...a);
-  if (spec.inplace !== undefined) return a[spec.inplace];
+  if (spec.inplace !== undefined && spec.inplace !== null) return __out(spec.params[spec.inplace][1], a[spec.inplace]);
   return __out(spec.ret, r);
 }`;
 
 // Comparison, shared by the page and the build step
 export function judgeNorm(cmp: string | undefined, v: unknown): unknown {
   const byVal = (a: unknown, b: unknown) => (JSON.stringify(a) < JSON.stringify(b) ? -1 : JSON.stringify(a) > JSON.stringify(b) ? 1 : 0);
-  if (!Array.isArray(v)) return cmp === "float" && typeof v === "number" ? Math.round(v * 1e5) / 1e5 : v;
+  if (cmp === "float") { const r = (x: unknown): unknown => typeof x === "number" ? Math.round(x * 1e5) / 1e5 + 0 : Array.isArray(x) ? x.map(r) : x; return r(v); }
+  if (!Array.isArray(v)) return v;
   if (cmp === "unordered") return [...v].sort(byVal);
   if (cmp === "outer") return [...v].sort(byVal);
   if (cmp === "groups") return v.map(x => (Array.isArray(x) ? [...x].sort(byVal) : x)).sort(byVal);
@@ -66,7 +68,14 @@ export function judgeEqual(cmp: string | undefined, a: unknown, b: unknown): boo
 }
 // Large expected outputs are stored as a fingerprint of their normalized JSON
 export function judgeHash(str: string): string { let h = 0x811c9dc5; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(16) + ":" + str.length; }
-export function judgeCheck(cmp: string | undefined, expected: unknown, got: unknown): boolean {
+const checkCache = new Map<string, (args: unknown[], out: unknown, exp: unknown) => boolean>();
+/** Compile a validator for problems with several correct answers: (args, out, exp) => boolean */
+export function compileCheck(src: string) {
+  if (!checkCache.has(src)) checkCache.set(src, new Function("return (" + src + ")")());
+  return checkCache.get(src)!;
+}
+export function judgeCheck(cmp: string | undefined, expected: unknown, got: unknown, check?: string, args?: unknown[]): boolean {
+  if (check && args) { try { return !!compileCheck(check)(JSON.parse(JSON.stringify(args)), got, expected); } catch { return false; } }
   if (expected && typeof expected === "object" && !Array.isArray(expected) && (expected as { __hash?: string }).__hash) {
     try { return judgeHash(JSON.stringify(judgeNorm(cmp, got))) === (expected as { __hash: string }).__hash; } catch (e) { return false; }
   }

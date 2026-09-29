@@ -23,7 +23,7 @@ export default function WhichView() {
           <div className="dt-res"><span className="eyebrow">Try this pattern</span><h2 style={{ margin: "4px 0 8px" }}>{p.name}</h2><p>{p.idea}</p>
             <div className="row" style={{ margin: "10px 0" }}>{p.signals.map(x => <span key={x} className="pill">{x}</span>)}</div>
             <CodeBlock sample={p.tpl} run={false} title="Template" />
-            <div className="row" style={{ marginTop: 12 }}>{TOPIC[p.topic] && <Link className="btn pri" href={`/learn/${p.topic}`}>Learn {TOPIC[p.topic].title} →</Link>}{PROBLEMS.filter(x => x.pat === p.id).slice(0, 3).map(x => <Link key={x.id} className="btn" href={`/problems/${x.id}`}>{x.t}</Link>)}<button className="btn ghost" onClick={restart}>Start over</button></div>
+            <div className="row" style={{ marginTop: 12 }}>{TOPIC[p.topic] && <Link className="btn pri" href={`/learn/${p.topic}`}>Learn {TOPIC[p.topic].title} →</Link>}{PROBLEMS.filter(x => x.pats.includes(p.id)).slice(0, 3).map(x => <Link key={x.id} className="btn" href={`/problems/${x.id}`}>{x.t}</Link>)}<Link className="btn ghost" href={`/problems?pat=${p.id}`}>All {PROBLEMS.filter(x => x.pats.includes(p.id)).length} problems →</Link><button className="btn ghost" onClick={restart}>Start over</button></div>
           </div>
         ) : n && (
           <div className="dt-q"><span className="eyebrow">Question {trail.length + 1}</span><h2 style={{ marginTop: 4 }}>{n.q}</h2>

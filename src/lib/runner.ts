@@ -95,7 +95,7 @@ export interface JudgeResult { mode: "run" | "submit"; lang: LangId; cases: Judg
 
 const EXP = expected.judge as Record<string, { cases: unknown[]; hidden: unknown[] }>;
 export const expectedFor = (id: string) => EXP[id];
-const specPayload = (sp: JudgeSpec) => ({ fn: sp.fn, params: sp.params, ret: sp.ret, inplace: sp.inplace, design: sp.design });
+const specPayload = (sp: JudgeSpec) => ({ fn: sp.fn, params: sp.params, ret: sp.ret, inplace: sp.inplace, design: sp.design, ctor: sp.ctor });
 
 export function judgeCases(id: string, mode: "run" | "submit", custom?: unknown[] | null): JudgeCase[] {
   const sp = JUDGE[id], ex = EXP[id];
@@ -148,7 +148,7 @@ export async function runJudge(id: string, lang: LangId, mode: "run" | "submit",
     const c = cases[r.i]; if (!c) return r;
     if (!r.error && !r.tle && r.ms > perCaseMs) return { ...r, tle: true, pass: false, exp: c.exp };
     const exp = c.exp;
-    const pass = r.error || r.tle ? false : exp && typeof exp === "object" && (exp as { __str?: string }).__str ? null : judgeCheck(sp.cmp, exp, r.out);
+    const pass = r.error || r.tle ? false : exp && typeof exp === "object" && (exp as { __str?: string }).__str ? null : judgeCheck(sp.cmp, exp, r.out, sp.check, argsList[r.i]);
     return { ...r, pass, exp };
   };
 

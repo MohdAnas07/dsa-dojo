@@ -1,6 +1,6 @@
 # DSA Dojo
 
-A DSA learning and interview-prep platform: structured lessons with interactive visualizers, runnable code, 49 interview problems with a built-in judge (JavaScript and Python), a multi-language code playground, a pattern finder, flashcards, cheat sheets, a mistake notebook and a progress tracker.
+A DSA learning and interview-prep platform: structured lessons with interactive visualizers, runnable code, 401 interview problems (93 easy, 262 medium, 46 hard; each tagged with every topic and pattern it trains, with linked similar problems) with a built-in judge (JavaScript and Python), a multi-language code playground, a pattern finder, flashcards, cheat sheets, a mistake notebook and a progress tracker.
 
 Built with **Next.js 15 (App Router) + TypeScript**, CodeMirror 6, Framer Motion and Lucide icons.
 
@@ -70,8 +70,9 @@ src/
   content/
     lessons/<slug>.ts     one file per lesson (12-section format) + index.ts registry
     roadmap.ts            every roadmap topic, learning path, levels, patterns, decision tree, clue list
-    problems.ts           problems: statement, hints, approach, JS reference solution, follow-ups
-    judge.ts              per-problem function signature + visible and hidden tests
+    problems-core.ts      the original 49 problems (+ judge-core-specs.ts)
+    problemsets/*.ts      the other 352 problems, one file per area (ProblemDef format)
+    catalog.ts            merges everything, builds tags, demo code and similar-problem links
     flashcards.ts, snippets.ts
   lib/
     languages.ts          language registry (browser vs server, Piston names)
@@ -90,7 +91,7 @@ scripts/
 
 **Add a lesson** (e.g. Heap): create `src/content/lessons/heap.ts` exporting a `Lesson` (copy an existing one as a template), then register it in `src/content/lessons/index.ts`. The topic already exists in `roadmap.ts`, so the sidebar, roadmap, search and flashcards pick it up automatically. The build runs every code sample in it.
 
-**Add a problem:** add an entry to `PROBLEMS` in `src/content/problems.ts` (the `c` field is a JavaScript reference solution that prints its own examples), then add its signature and tests to `JUDGE` in `src/content/judge.ts`. You only write inputs; expected outputs are computed from the reference solution when you build. Supported parameter types: `number`, `number[]`, `number[][]`, `string`, `string[]`, `character[][]`, `ListNode`, `TreeNode`, and `cycle` (a list with a loop). Use `cmp` when any order is acceptable.
+**Add a problem:** add a `ProblemDef` to the matching file in `src/content/problemsets/` (see `src/lib/types.ts`). Key fields: `tp` (every topic it uses), `pt` (every pattern), `sim` (optional hand-picked similar ids), `fn` + `params` (`"nums:number[], k:number"`), `ret`, `ex` (examples as `[...args, expected]`), `hid` (hidden test inputs; expected outputs are computed from `code`, the JavaScript reference solution), plus `cmp`/`check` when several answers are correct and `ctor`/`methods` for design problems. Parameter types: `number`, `double`, `number[]`, `number[][]`, `string`, `string[]`, `string[][]`, `character[][]`, `boolean`, `ListNode`, `ListNode[]`, `TreeNode`, `cycle`. Then run `npm run verify`: it runs every reference solution, checks the examples, validators, tags and timing, and makes sure every JS and Python starter parses.
 
 **Add a language to the playground:** add it to `LANGUAGES` in `src/lib/languages.ts` with its Piston name (and optionally a CodeMirror highlighter in `src/components/CodeEditor.tsx`).
 

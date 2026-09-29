@@ -12,12 +12,17 @@ export const CASE_RESULT = "@@DOJO_RESULT@@";
 const PY_TYPES: Record<string, string> = {
   number: "int", "number[]": "List[int]", "number[][]": "List[List[int]]", string: "str", "string[]": "List[str]",
   "string[][]": "List[List[str]]", "character[][]": "List[List[str]]", boolean: "bool", ListNode: "Optional[ListNode]",
-  TreeNode: "Optional[TreeNode]", cycle: "Optional[ListNode]", void: "None", "any[]": "List"
+  TreeNode: "Optional[TreeNode]", cycle: "Optional[ListNode]", void: "None", "any[]": "List", double: "float",
+  "double[]": "List[float]", "boolean[]": "List[bool]", "ListNode[]": "List[Optional[ListNode]]"
 };
+const pyT = (t: string) => PY_TYPES[t] || "object";
 
 export function pyStarter(sp: JudgeSpec): string {
   if (sp.design) {
-    return `class ${sp.fn}:\n\n    def __init__(self):\n        pass\n\n    def push(self, val: int) -> None:\n        pass\n\n    def pop(self) -> None:\n        pass\n\n    def top(self) -> int:\n        pass\n\n    def getMin(self) -> int:\n        pass\n`;
+    const ctor = (sp.ctor || []).map(([n, t]) => `, ${n}: ${pyT(t)}`).join("");
+    const tree = (sp.ctor || []).some(p => p[1] === "TreeNode") ? "# Provided: class TreeNode (val, left, right)\n\n" : "";
+    const methods = (sp.methods || []).map(m => `    def ${m.name}(self${m.params.map(([n, t]) => `, ${n}: ${pyT(t)}`).join("")}) -> ${pyT(m.ret)}:\n        pass\n`).join("\n");
+    return `${tree}class ${sp.fn}:\n\n    def __init__(self${ctor}):\n        pass\n\n${methods}`;
   }
   const list = sp.params.some(p => p[1] === "ListNode" || p[1] === "cycle") || sp.ret === "ListNode";
   const tree = sp.params.some(p => p[1] === "TreeNode") || sp.ret === "TreeNode";
@@ -102,6 +107,7 @@ def __dojo_in(t, v):
     if t == "ListNode": return __dojo_to_list(v)
     if t == "TreeNode": return __dojo_to_tree(v)
     if t == "cycle": return __dojo_cycle(v)
+    if t == "ListNode[]": return [__dojo_to_list(x) for x in v]
     return json.loads(json.dumps(v))
 
 def __dojo_out(t, v):
@@ -126,7 +132,8 @@ def __dojo_run(spec, args):
         obj, out = None, []
         for i, op in enumerate(ops):
             if i == 0:
-                obj = cls(*vals[0]); out.append(None); continue
+                ctor = spec.get("ctor") or []
+                obj = cls(*[__dojo_in(ctor[j][1] if j < len(ctor) else "", v) for j, v in enumerate(vals[0])]); out.append(None); continue
             r = getattr(obj, op)(*vals[i])
             out.append(r)
         return out
@@ -139,7 +146,7 @@ def __dojo_run(spec, args):
     a = [__dojo_in(p[1], args[i]) for i, p in enumerate(spec["params"])]
     r = fn(*a)
     if spec.get("inplace") is not None:
-        return a[spec["inplace"]]
+        return __dojo_out(spec["params"][spec["inplace"]][1], a[spec["inplace"]])
     return __dojo_out(spec["ret"], r)
 
 def __dojo_main():

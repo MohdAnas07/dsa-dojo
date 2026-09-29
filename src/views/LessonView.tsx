@@ -34,7 +34,7 @@ function Actions({ slug }: { slug: string }) {
 function TopicStub({ slug }: { slug: string }) {
   const s = useStore(); const t = TOPIC[slug];
   const pats = PATTERNS.filter(p => p.topic === slug);
-  const probs = PROBLEMS.filter(p => p.topic === slug || pats.some(x => x.id === p.pat));
+  const probs = PROBLEMS.filter(p => p.topics.includes(slug) || p.pats.some(x => pats.some(y => y.id === x)));
   return (
     <div className="stack">
       <div className="row"><span className="eyebrow">Level {t.level}</span><PriPill p={t.pri} /><span className="pill" style={{ borderStyle: "dashed" }}>Outline</span></div>
@@ -44,7 +44,7 @@ function TopicStub({ slug }: { slug: string }) {
         <p className="muted">It sits at <b>{PRI[t.pri][1]}</b> in your roadmap. {t.pre.length ? "Finish its prerequisites first; " : ""}the full lesson can be added as <code>src/content/lessons/{slug}.ts</code> using the same 12-section format as the other topics.</p>
         <div className="row" style={{ marginTop: 12 }}><Actions slug={slug} /><Link className="btn" href={`/learn/${nextTopic(s)}`}>Go to your next lesson →</Link></div></div>
       {pats.map(p => <div key={p.id} className="card stack"><div className="row"><span className="eyebrow">Pattern template</span><h3>{p.name}</h3></div><p className="muted">{p.idea}</p><div className="row">{p.signals.map(x => <span key={x} className="pill">{x}</span>)}</div><CodeBlock sample={p.tpl} run={false} title="Template" /></div>)}
-      {probs.length > 0 && <><h2>Related practice problems</h2><div className="plist">{probs.map(p => <ProblemRow key={p.id} p={p} />)}</div></>}
+      {probs.length > 0 && <><div className="row" style={{ justifyContent: "space-between" }}><h2>Practice problems ({probs.length})</h2><Link className="btn sm" href={`/problems?topic=${slug}`}>Open in problem tracker →</Link></div><div className="plist">{probs.slice(0, 15).map(p => <ProblemRow key={p.id} p={p} />)}</div>{probs.length > 15 && <Link href={`/problems?topic=${slug}`}>See all {probs.length} problems →</Link>}</>}
     </div>
   );
 }
@@ -59,7 +59,7 @@ export default function LessonView({ slug }: { slug: string }) {
   const eli = s.eli;
   const pi = LESSON_PATH.indexOf(slug);
   const prev = pi > 0 ? LESSON_PATH[pi - 1] : null, next = pi >= 0 && pi < LESSON_PATH.length - 1 ? LESSON_PATH[pi + 1] : null;
-  const probs = PROBLEMS.filter(p => p.topic === slug);
+  const probs = PROBLEMS.filter(p => p.topics.includes(slug)).sort((a, b) => Number(b.topic === slug) - Number(a.topic === slug) || "EMH".indexOf(a.d) - "EMH".indexOf(b.d));
   const beginner = <div className="eli"><div className="eyebrow">Explain like I&apos;m new</div><p style={{ fontSize: 16 }}>{c.eli5}</p></div>;
   const technical = <div className="prose"><p style={{ fontSize: 16 }}>{c.what}</p><p className="muted" style={{ marginTop: 10 }}>{c.tech}</p></div>;
   const toggle = (k: "fav" | "weak") => update(x => { if (x[k][slug]) delete x[k][slug]; else x[k][slug] = 1; });
@@ -133,7 +133,11 @@ export default function LessonView({ slug }: { slug: string }) {
               ? <li key={q}><span style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}><Link href={`/problems/${q}`}>{PROB[q].t}</Link>{s.ps[q] && <span className="faint mono" style={{ fontSize: 12 }}>{STATUS[s.ps[q]][0]} {STATUS[s.ps[q]][1]}</span>}</span></li>
               : <li key={q}><span>{q}</span></li>)}</ul>
           </div>))}</div>
-        {probs.length > 0 && <><h3 style={{ margin: "18px 0 10px" }}>Practice problems in this topic ({probs.length})</h3><div className="plist">{probs.map(p => <ProblemRow key={p.id} p={p} />)}</div></>}
+        {probs.length > 0 && <>
+          <div className="row" style={{ justifyContent: "space-between", margin: "18px 0 10px" }}><h3>Practice problems that use {t.title} ({probs.length})</h3><Link className="btn sm" href={`/problems?topic=${slug}`}>Open all in problem tracker →</Link></div>
+          <div className="plist">{probs.slice(0, 12).map(p => <ProblemRow key={p.id} p={p} />)}</div>
+          {probs.length > 12 && <p style={{ marginTop: 10 }}><Link href={`/problems?topic=${slug}`}>See all {probs.length} problems →</Link></p>}
+        </>}
       </Sec>
       <Sec n={12}><div className="revgrid">
         <pre className="cheat">{c.cheat}</pre>
