@@ -1,0 +1,18 @@
+# Self-hosted Piston code-execution server (https://github.com/engineer-man/piston)
+# Run on a Linux VM with Docker:  docker compose -f docker-compose.piston.yml up -d
+# Then install languages:         node scripts/piston-install.mjs http://localhost:2000
+services:
+  piston:
+    image: ghcr.io/engineer-man/piston
+    container_name: piston
+    restart: unless-stopped
+    privileged: true            # required by Piston's isolate sandbox
+    ports:
+      - "127.0.0.1:2000:2000"   # only reachable from this machine; put a reverse proxy with auth in front if the web app runs elsewhere
+    volumes:
+      - piston-packages:/piston/packages
+    tmpfs:
+      - /piston/jobs:exec,uid=1000,gid=1000,mode=711
+      - /tmp:exec
+volumes:
+  piston-packages:

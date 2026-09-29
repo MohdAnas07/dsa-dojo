@@ -1,0 +1,39 @@
+{
+  "name": "dsa-dojo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "generate": "tsx scripts/generate-expected.ts",
+    "predev": "npm run generate",
+    "dev": "next dev",
+    "prebuild": "npm run generate",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@codemirror/commands": "^6.11.1",
+    "@codemirror/lang-cpp": "^6.0.3",
+    "@codemirror/lang-go": "^6.0.1",
+    "@codemirror/lang-java": "^6.0.2",
+    "@codemirror/lang-javascript": "^6.2.5",
+    "@codemirror/lang-python": "^6.2.1",
+    "@codemirror/language": "^6.12.4",
+    "@codemirror/state": "^6.7.6",
+    "@codemirror/view": "^6.43.13",
+    "@lezer/highlight": "^1.2.5",
+    "@uiw/react-codemirror": "^4.25.12",
+    "framer-motion": "^13.4.6",
+    "lucide-react": "^1.48.0",
+    "next": "^15.5.26",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3"
+  }
+}
