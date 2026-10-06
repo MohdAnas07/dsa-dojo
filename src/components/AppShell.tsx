@@ -8,6 +8,8 @@ import { TOPIC, PROB, LESSON_PATH } from "@/lib/data";
 import { LESSONS } from "@/content/lessons";
 import { PROBLEMS } from "@/content/problems";
 import { search, type SearchItem } from "@/lib/search";
+import { startSync, takeFlash } from "@/lib/sync";
+import { AccountButton } from "./Account";
 import Modal from "./Modal";
 import { Toaster, toast } from "./Toast";
 
@@ -25,7 +27,7 @@ function crumbs(path: string) {
   const [, a, b] = path.split("/");
   if (a === "learn" && b) return <>Learn / <b>{TOPIC[b]?.title || b}</b></>;
   if (a === "problems" && b) return <>Problems / <b>{PROB[b]?.t || b}</b></>;
-  const names: Record<string, string> = { "": "Dashboard", roadmap: "Roadmap", patterns: "Patterns", which: "Which pattern?", framework: "How to solve any problem", problems: "Problems", flashcards: "Flashcards", revision: "Cheat sheets", mistakes: "Mistake notebook", progress: "Progress", playground: "Code playground" };
+  const names: Record<string, string> = { "": "Dashboard", roadmap: "Roadmap", patterns: "Patterns", which: "Which pattern?", framework: "How to solve any problem", problems: "Problems", flashcards: "Flashcards", revision: "Cheat sheets", mistakes: "Mistake notebook", progress: "Progress", playground: "Code playground", login: "Sign in", privacy: "Privacy" };
   return <b>{names[a] ?? "DSA Dojo"}</b>;
 }
 
@@ -127,6 +129,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }, [path, router]);
   useEffect(() => { window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey); }, [onKey]);
   useEffect(() => { setNavOpen(false); }, [path]);
+  useEffect(() => { startSync(); const m = takeFlash(); if (m) setTimeout(() => toast(m, 5000), 300); }, []);
 
   return (
     <div className={navOpen ? "nav-open-wrap" : ""}>
@@ -138,6 +141,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <div className="faint" style={{ fontSize: 11.5, padding: "14px 8px 0", display: "flex", gap: 10, flexWrap: "wrap" }}>
             <span><span className="dot now" style={{ display: "inline-block" }} /> Now</span><span><span className="dot next" style={{ display: "inline-block" }} /> Next</span><span><span className="dot later" style={{ display: "inline-block" }} /> Later</span><span><span className="dot adv" style={{ display: "inline-block" }} /> Advanced</span>
           </div>
+          <div className="faint" style={{ fontSize: 11.5, padding: "10px 8px 0" }}><Link href="/privacy" style={{ color: "inherit" }}>Privacy</Link></div>
         </aside>
         {navOpen && <div className="scrim" style={{ display: "block", position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", zIndex: 40 }} onClick={() => setNavOpen(false)} />}
         <div className="main">
@@ -146,8 +150,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <div className="crumbs">{crumbs(path)}</div>
             <button className="iconbtn" onClick={() => setSearchOpen(true)} aria-label="Search"><Search size={15} /><span className="hide-sm">Search</span><span className="kbd hide-sm">/</span></button>
             <Link className="iconbtn hide-sm" href="/playground" aria-label="Code playground"><Code2 size={15} />Playground</Link>
-            <button className="iconbtn" onClick={() => setKeysOpen(true)} aria-label="Keyboard shortcuts"><Keyboard size={15} /></button>
+            <button className="iconbtn hide-sm" onClick={() => setKeysOpen(true)} aria-label="Keyboard shortcuts"><Keyboard size={15} /></button>
             <button className="iconbtn" onClick={toggleTheme} aria-label="Toggle theme"><Moon size={15} /></button>
+            <AccountButton />
           </header>
           <main id="content" className={"content" + (xwide ? " xwide" : wide ? " wide" : "")}>{children}</main>
         </div>

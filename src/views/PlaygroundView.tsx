@@ -4,7 +4,7 @@ import Editor from "@/components/Editor";
 import { LANGUAGES, LANG, type LangId } from "@/lib/languages";
 import { HARNESS_SRC } from "@/lib/judge-core";
 import { runJS, runOnServer } from "@/lib/runner";
-import { useStore, update, getState } from "@/lib/store";
+import { useStore, update, getState, useRemoteEpoch } from "@/lib/store";
 import { PG_SNIPPETS, PY_SNIPPETS } from "@/content/snippets";
 
 const JS_PRELUDE = HARNESS_SRC + "\nconst buildList = __toList, listToArray = __fromList, buildTree = __toTree, treeToArray = __fromTree;\n";
@@ -19,12 +19,19 @@ export default function PlaygroundView() {
   const [running, setRunning] = useState(false);
   const [server, setServer] = useState<boolean | null>(null);
   const t = useRef<ReturnType<typeof setTimeout>>(undefined);
-  useEffect(() => { setCode(getState().pg[lang] ?? (lang === "javascript" ? PG_SNIPPETS["Blank"] : LANG[lang].hello)); setOut(null); }, [lang]);
+  const epoch = useRemoteEpoch();
+  // What this editor last loaded from, or wrote to, the saved state (see SolvePanel for why).
+  const synced = useRef(""); const shown = useRef("");
+  shown.current = code;
+  const loadSaved = () => { const v = getState().pg[lang] ?? (lang === "javascript" ? PG_SNIPPETS["Blank"] : LANG[lang].hello); synced.current = v; setCode(v); };
+  useEffect(() => { loadSaved(); setOut(null); }, [lang]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (epoch && shown.current === synced.current) loadSaved(); }, [epoch]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { fetch("/api/execute").then(r => r.json()).then(d => setServer(!!d.configured)).catch(() => setServer(false)); }, []);
-  const onChange = (v: string) => { setCode(v); clearTimeout(t.current); t.current = setTimeout(() => update(x => { x.pg[lang] = v; }), 400); };
+  const onChange = (v: string) => { setCode(v); clearTimeout(t.current); t.current = setTimeout(() => { synced.current = v; update(x => { x.pg[lang] = v; }); }, 400); };
 
   const run = async () => {
     if (running) return;
+    clearTimeout(t.current); synced.current = code;
     update(x => { x.pg[lang] = code; }, { activity: true });
     setRunning(true); setOut({ text: "", info: "Running…" });
     if (LANG[lang].runtime === "browser") {

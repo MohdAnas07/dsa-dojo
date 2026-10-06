@@ -34,4 +34,4 @@ export const LANGUAGES: Language[] = [
 ];
 
 export const LANG = Object.fromEntries(LANGUAGES.map(l => [l.id, l])) as Record<LangId, Language>;
-export const isLangId = (x: unknown): x is LangId => typeof x === "string" && x in LANG;
+export const isLangId = (x: unknown): x is LangId => typeof x === "string" && Object.prototype.hasOwnProperty.call(LANG, x);

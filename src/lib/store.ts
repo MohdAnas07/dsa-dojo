@@ -23,25 +23,41 @@ const SERVER = defaults();
 let state: State = SERVER;
 let loaded = false;
 const listeners = new Set<() => void>();
+const emit = () => listeners.forEach(l => l());
 
+function read(): State | null {
+  try {
+    const raw = localStorage.getItem(KEY) ?? localStorage.getItem("dsa-dojo-v1");
+    return raw ? { ...defaults(), ...JSON.parse(raw) } : null;
+  } catch { return null; /* storage unavailable or corrupt: keep what we have */ }
+}
 function load() {
   if (loaded || typeof window === "undefined") return;
   loaded = true;
-  try {
-    const raw = localStorage.getItem(KEY) ?? localStorage.getItem("dsa-dojo-v1");
-    if (raw) state = { ...defaults(), ...JSON.parse(raw) };
-  } catch { /* storage unavailable: keep defaults */ }
+  state = read() ?? state;
+  // Another tab of this site changed the saved state: show the same thing here.
+  window.addEventListener("storage", e => {
+    if (e.key !== KEY) return;
+    state = read() ?? defaults();
+    epoch++; emit(); remoteListeners.forEach(l => l());
+  });
 }
 function persist() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* ignore */ } }
 export const today = () => new Date().toISOString().slice(0, 10);
+
+/** Called after every local change. The account sync (src/lib/sync.ts) uses it to schedule a save. */
+let onChange: ((prev: State, next: State) => void) | null = null;
+export function setChangeListener(fn: ((prev: State, next: State) => void) | null) { onChange = fn; }
 
 export function update(fn: (s: State) => void, opts: { activity?: boolean } = {}) {
   load();
   const next: State = structuredClone(state);
   fn(next);
   if (opts.activity) { const d = today(); if (!next.days.includes(d)) next.days = [...next.days, d].slice(-400); }
+  const prev = state;
   state = next; persist();
-  listeners.forEach(l => l());
+  emit();
+  onChange?.(prev, next);
 }
 export function getState(): State { load(); return state; }
 export function useStore(): State {
@@ -50,6 +66,26 @@ export function useStore(): State {
     () => { load(); return state; },
     () => SERVER
   );
+}
+
+/**
+ * Replaces part of the state with data that came from somewhere else (the user's account,
+ * or another tab). Does not count as a local change, so it never triggers a save.
+ */
+export function replaceFromRemote(patch: Partial<State>) {
+  load();
+  state = { ...state, ...structuredClone(patch) };
+  persist();
+  epoch++; emit(); remoteListeners.forEach(l => l());
+}
+let epoch = 0;
+const remoteListeners = new Set<() => void>();
+/**
+ * A number that goes up whenever state arrives from outside this tab. Editors keep their own
+ * copy of the text, so they watch this to pick up a draft that was loaded after they opened.
+ */
+export function useRemoteEpoch(): number {
+  return useSyncExternalStore(cb => { remoteListeners.add(cb); return () => remoteListeners.delete(cb); }, () => epoch, () => 0);
 }
 
 export function streak(s: State): number {

@@ -5,7 +5,7 @@ import { JUDGE } from "@/content/judge";
 import { STARTERS, JUDGE_LANGS } from "@/lib/drivers";
 import { LANG, type LangId } from "@/lib/languages";
 import { runJudge, verdictOf, expectedFor, type JudgeResult, type CaseResult } from "@/lib/runner";
-import { useStore, update, today, getState } from "@/lib/store";
+import { useStore, update, today, getState, useRemoteEpoch } from "@/lib/store";
 import type { JudgeSpec } from "@/lib/types";
 import { toast } from "./Toast";
 
@@ -42,14 +42,23 @@ export default function SolvePanel({ id }: { id: string }) {
   const saveT = useRef<ReturnType<typeof setTimeout>>(undefined);
   const panelRef = useRef<HTMLElement>(null);
 
+  const epoch = useRemoteEpoch();
+  // What this editor last loaded from, or wrote to, the saved state. If the text on screen still
+  // equals it, nothing here is unsaved and a draft arriving from the account may replace it.
+  const synced = useRef(starter);
+  const shown = useRef(starter);
+  shown.current = code;
+  const loadDraft = () => { const v = getState().code[key] ?? starter; synced.current = v; setCode(v); };
+
   // load saved draft when problem or language changes
-  useEffect(() => { setCode(getState().code[key] ?? starter); setResult(null); setTab("cases"); }, [key, starter]);
+  useEffect(() => { loadDraft(); setResult(null); setTab("cases"); }, [key, starter]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (epoch && shown.current === synced.current) loadDraft(); }, [epoch]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (LANG[lang].runtime === "server") serverConfigured().then(setServer); }, [lang]);
 
   const onChange = (v: string) => {
     setCode(v);
     clearTimeout(saveT.current);
-    saveT.current = setTimeout(() => update(x => { x.code[key] = v; }), 400);
+    saveT.current = setTimeout(() => { synced.current = v; update(x => { x.code[key] = v; }); }, 400);
   };
   const judge = async (mode: "run" | "submit") => {
     if (running) return;
@@ -62,6 +71,7 @@ export default function SolvePanel({ id }: { id: string }) {
         custom = lines.map(l => JSON.parse(l));
       } catch (e) { setResult({ mode, lang, cases: [], results: [], logs: [], compile: "Custom input is not valid JSON: " + (e as Error).message }); setTab("result"); return; }
     }
+    clearTimeout(saveT.current); synced.current = code;
     update(x => { x.code[key] = code; }, { activity: true });
     setRunning(true); setTab("result"); setResIdx(null);
     const r = await runJudge(id, lang, mode, code, custom);
@@ -126,6 +136,7 @@ export default function SolvePanel({ id }: { id: string }) {
         {sub && <span className={`pill ${sub.ok ? "E" : "H"}`} title={`Last submission: ${sub.verdict} (${sub.date})`}>{sub.ok ? "✓ Accepted" : "✕ " + (({ "Wrong Answer": "WA", "Time Limit Exceeded": "TLE", "Runtime Error": "RE" } as Record<string, string>)[sub.verdict] || "Error")}</span>}
         <button className="btn sm ghost" onClick={() => {
           if (!confirmReset) { setConfirmReset(true); setTimeout(() => setConfirmReset(false), 3000); return; }
+          clearTimeout(saveT.current); synced.current = starter;
           update(x => { delete x.code[key]; }); setCode(starter); setConfirmReset(false); toast("Editor reset to starter code");
         }}>{confirmReset ? "Click again to erase your code" : "Reset"}</button>
         <button className="btn sm" disabled={running} onClick={() => judge("run")} title="Ctrl/⌘ + Enter">▶ Run</button>

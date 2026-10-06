@@ -5,6 +5,7 @@ import { PATTERNS } from "@/content/roadmap";
 import { PROBLEMS } from "@/content/problems";
 import { LESSONS } from "@/content/lessons";
 import { LESSON_SLUGS, PAT, PROB, TOPIC } from "@/lib/data";
+import { MAX_NOTE } from "@/lib/progress";
 import { useStore, update, today } from "@/lib/store";
 import { toast } from "@/components/Toast";
 
@@ -25,12 +26,12 @@ export default function MistakesView() {
         setProb(""); setPat(""); setWrong(""); setRight(""); toast("Mistake saved");
       }}>
         <div className="grid g2" style={{ gap: 10 }}>
-          <div className="stack" style={{ gap: 4 }}><label htmlFor="m-prob" className="faint mono" style={{ fontSize: 12 }}>PROBLEM</label><input id="m-prob" type="text" list="m-probs" placeholder="e.g. Longest Substring Without Repeating Characters" value={prob} onChange={e => setProb(e.target.value)} /><datalist id="m-probs">{PROBLEMS.map(p => <option key={p.id} value={p.t} />)}</datalist></div>
+          <div className="stack" style={{ gap: 4 }}><label htmlFor="m-prob" className="faint mono" style={{ fontSize: 12 }}>PROBLEM</label><input id="m-prob" type="text" list="m-probs" placeholder="e.g. Longest Substring Without Repeating Characters" value={prob} maxLength={300} onChange={e => setProb(e.target.value)} /><datalist id="m-probs">{PROBLEMS.map(p => <option key={p.id} value={p.t} />)}</datalist></div>
           <div className="stack" style={{ gap: 4 }}><label htmlFor="m-pat" className="faint mono" style={{ fontSize: 12 }}>PATTERN</label><select id="m-pat" value={pat} onChange={e => setPat(e.target.value)}><option value="">Choose…</option>{PATTERNS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
         </div>
-        <div className="stack" style={{ gap: 4 }}><label htmlFor="m-wrong" className="faint mono" style={{ fontSize: 12 }}>MY MISTAKE</label><textarea id="m-wrong" ref={wrongRef} rows={2} placeholder="I forgot to move the left pointer when a duplicate appeared." value={wrong} onChange={e => setWrong(e.target.value)} /></div>
-        <div className="stack" style={{ gap: 4 }}><label htmlFor="m-right" className="faint mono" style={{ fontSize: 12 }}>CORRECT IDEA</label><textarea id="m-right" rows={2} placeholder="Maintain a sliding window with unique characters; jump left past the previous index." value={right} onChange={e => setRight(e.target.value)} /></div>
-        <div className="row"><button className="btn pri" type="submit">Save mistake</button><span className="faint" style={{ fontSize: 13 }}>Saved in this browser.</span></div>
+        <div className="stack" style={{ gap: 4 }}><label htmlFor="m-wrong" className="faint mono" style={{ fontSize: 12 }}>MY MISTAKE</label><textarea id="m-wrong" ref={wrongRef} rows={2} placeholder="I forgot to move the left pointer when a duplicate appeared." value={wrong} maxLength={MAX_NOTE} onChange={e => setWrong(e.target.value)} /></div>
+        <div className="stack" style={{ gap: 4 }}><label htmlFor="m-right" className="faint mono" style={{ fontSize: 12 }}>CORRECT IDEA</label><textarea id="m-right" rows={2} placeholder="Maintain a sliding window with unique characters; jump left past the previous index." value={right} maxLength={MAX_NOTE} onChange={e => setRight(e.target.value)} /></div>
+        <div className="row"><button className="btn pri" type="submit">Save mistake</button><span className="faint" style={{ fontSize: 13 }}>Saved with the rest of your progress.</span></div>
       </form>
       <h2 style={{ marginTop: 6 }}>Your mistakes ({s.mist.length})</h2>
       {s.mist.length ? <div className="stack" style={{ gap: 10 }}>{[...s.mist].reverse().map(m => (

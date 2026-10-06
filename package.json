@@ -10,7 +10,8 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "verify": "npm run generate && tsx scripts/verify/starters.ts && tsx scripts/verify/python-samples.ts"
+    "verify": "npm run generate && tsx scripts/verify/starters.ts && tsx scripts/verify/python-samples.ts",
+    "verify:backend": "node scripts/verify/backend.mjs"
   },
   "dependencies": {
     "@codemirror/commands": "^6.11.1",
@@ -27,11 +28,14 @@
     "framer-motion": "^13.4.6",
     "lucide-react": "^1.48.0",
     "next": "^15.5.26",
+    "next-auth": "^4.24.15",
+    "pg": "^8.23.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },
   "devDependencies": {
     "@types/node": "^26.6.3",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "tsx": "^4.23.15",

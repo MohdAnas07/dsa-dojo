@@ -13,7 +13,7 @@ npm run dev          # http://localhost:3000
 
 `npm run dev` and `npm run build` first run `scripts/generate-expected.ts`, which executes every code sample and every reference solution and writes `src/generated/expected.json`. If any sample crashes or a test is inconsistent, the build stops and tells you which one.
 
-Other scripts: `npm run build`, `npm start`, `npm run typecheck`.
+Other scripts: `npm run build`, `npm start`, `npm run typecheck`, `npm run verify` (problems and starters), `npm run verify:backend` (accounts API).
 
 ## Deploy (JavaScript works everywhere)
 
@@ -24,7 +24,78 @@ Other scripts: `npm run build`, `npm start`, `npm run typecheck`.
 
 Any host that runs Next.js works too (Netlify, Render, Railway, a VPS with `npm run build && npm start`).
 
-Progress is stored in each visitor's browser (`localStorage`), so there's no database to set up.
+Out of the box, progress is stored in each visitor's browser (`localStorage`), so the site works with no database. To let people sign in and keep their progress in an account, see the next section.
+
+## Accounts: Google sign-in and saved progress
+
+With four settings in place, visitors get a **Sign in** button. After signing in with Google, their progress (completed lessons, problem statuses, editor code, latest results, flashcards, mistake notes, streak, language setting) is saved to a Postgres database and follows them to any device. Without the settings, the button does not appear and the site behaves exactly as before.
+
+### 1. Create a Postgres database
+
+Any Postgres works. [Neon](https://neon.tech) has a free tier and takes about a minute: create a project, then copy the **pooled** connection string. It looks like `postgresql://user:password@ep-xxxx-pooler.region.aws.neon.tech/neondb?sslmode=require`.
+
+You do not need to create tables. The two tables (`users`, `progress`) are created automatically the first time someone signs in (see `src/lib/server/db.ts`).
+
+### 2. Create Google sign-in credentials
+
+1. Open [Google Cloud Console](https://console.cloud.google.com/) and create a project (or pick one).
+2. **APIs & Services → OAuth consent screen**: choose **External**, enter the app name, your support email and your site's domain. The default scopes (email, profile, openid) are all this app uses.
+3. **APIs & Services → Credentials → Create credentials → OAuth client ID → Web application**:
+   - Authorized JavaScript origins: `https://your-domain.com` and `http://localhost:3000`
+   - Authorized redirect URIs: `https://your-domain.com/api/auth/callback/google` and `http://localhost:3000/api/auth/callback/google`
+4. Copy the **Client ID** and **Client secret**.
+5. While the app's publishing status is **Testing**, only the test users you list can sign in. Switch it to **In production** when you are ready for everyone. Google may ask for a privacy policy link; this site has one at `/privacy` (read it and adjust it to your situation first).
+
+Google moves these screens around from time to time; the names above are the ones to look for.
+
+### 3. Add the settings
+
+Locally, put them in `.env.local` (see `.env.example`). On your host, add them as environment variables (Vercel → Project → Settings → Environment Variables) and redeploy.
+
+```
+DATABASE_URL=postgresql://...            # from step 1
+GOOGLE_CLIENT_ID=....apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=...
+NEXTAUTH_SECRET=...                      # a long random string: openssl rand -base64 32
+NEXTAUTH_URL=https://your-domain.com     # locally: http://localhost:3000
+```
+
+`NEXTAUTH_URL` must be the exact address people use, and it must match the redirect URI you gave Google. Keep `NEXTAUTH_SECRET` and `GOOGLE_CLIENT_SECRET` private; changing `NEXTAUTH_SECRET` signs everyone out.
+
+### 4. Check it
+
+```bash
+npm run dev                 # sign in at http://localhost:3000/login
+npm run verify:backend      # in a second terminal: checks the API against your database
+```
+
+`verify:backend` reads `.env.local`, creates two throwaway users, tests saving, loading, conflicts, validation, cross-user isolation and account deletion, then removes them. Use `BASE_URL=https://your-domain.com npm run verify:backend` to check a deployed site (with that site's `DATABASE_URL` and `NEXTAUTH_SECRET`).
+
+### How it works
+
+- **Sign-in** is handled by [next-auth](https://next-auth.js.org) (`src/lib/server/auth.ts`). The session is a signed, http-only cookie that lasts 30 days from the last visit, so there is no session table.
+- **The browser copy stays the working copy**, so pages stay static and fast, and the site keeps working offline. `src/lib/sync.ts` saves it to the account about 1.5 seconds after each change and loads the account's copy on page load and when you return to the tab.
+- **First sign-in keeps what the visitor already did**: progress made before signing in is combined with the account (`mergeProgress` in `src/lib/progress.ts`).
+- **Devices do not overwrite each other's work.** Every save carries the revision it was based on. If the account has moved on, the server answers `409` with its copy. The browser then takes that copy and re-applies only the things it changed itself since its last save (`applyLocalChanges`), so an old draft sitting on one device never replaces a newer one from another. The one case with a loser: if two devices change the *same* item (the same editor draft, the same problem's status) before either has synced, the one that saves last wins for that item.
+- **Signing out** saves anything pending, clears the browser's copy and reloads the page, so the next person on that computer starts clean. If the last changes could not be saved (offline, database down), they are kept in the browser instead and saved at the next sign-in.
+- **Other tabs follow along**: signing in, out, or switching account in one tab reloads the others, and the server refuses a request from a tab that still believes it is someone else.
+- **Everything stored is validated** on the server (`sanitizeProgress`): unknown keys are dropped, types checked, sizes capped (1.5 MB per user; 64,000 characters per editor and 10,000 per note field, longer text is shortened).
+
+| Endpoint | What it does |
+|---|---|
+| `GET /api/auth/session` | Who is signed in (also renews the session) |
+| `GET /api/progress` | The signed-in user's saved progress and its revision |
+| `PUT /api/progress` | Save progress: `{ data, baseRev }` → `{ rev }`, or `409` with the newer copy. `401` carries a `code`: `signed_out`, `account_missing` or `user_changed` |
+| `DELETE /api/account` | Delete the signed-in user and all their saved progress |
+
+Each user has one row in `users` (Google id, email, name, picture, first and last seen) and one row in `progress` (a JSON document plus a revision number). To see how many people have signed up: `select count(*) from users;`.
+
+**Troubleshooting**
+- *No Sign in button*: one of the four settings is missing. The server log names which.
+- *Moving to a new database*: copy the `users` and `progress` tables across first. If people's accounts are missing from the new database they are signed out; their browser keeps its copy and it is saved again when they sign back in, but devices they do not use again have nothing to restore from.
+- *Google shows `redirect_uri_mismatch`*: the redirect URI in Google Cloud does not exactly match `NEXTAUTH_URL` + `/api/auth/callback/google`.
+- *Sign-in returns to `/login` with an error*: the database could not be reached; check `DATABASE_URL`. A "self-signed certificate" error means your provider's certificate is not publicly trusted; follow their Node.js instructions for the connection string.
+- *Saves limited*: `SAVES_PER_MINUTE` (default 60 per user, per server instance) and `DATABASE_POOL_MAX` (default 5 connections) can be raised with environment variables.
 
 ## Enable other languages (Python, Java, C++, C, Go, TypeScript)
 
@@ -64,7 +135,8 @@ Expected answers come from the JavaScript reference solutions at build time, so 
 
 ```
 src/
-  app/                    routes (App Router): /, /learn/[slug], /problems/[id], /playground, /api/execute, …
+  app/                    routes (App Router): /, /learn/[slug], /problems/[id], /playground, /login, /privacy,
+                          /api/execute, /api/auth/*, /api/progress, /api/account, …
   views/                  page components
   components/             AppShell (sidebar, search, shortcuts), CodeBlock, CodeEditor, SolvePanel, VisualExplanation, …
   content/
@@ -80,7 +152,10 @@ src/
     runner.ts             browser sandbox, server calls, judging
     judge-core.ts         data-structure helpers + answer comparison (shared by browser, server and build)
     viz.ts                interactive visualizers
-    store.ts              progress stored in localStorage
+    store.ts              progress stored in localStorage (the working copy)
+    progress.ts           which parts of the progress are saved to an account; validation and merging
+    sync.ts               keeps the browser copy and the account in step
+    server/               database (db.ts), sign-in (auth.ts), request helpers (http.ts); server-only
 scripts/
   generate-expected.ts    build-time checker/generator
   dev-executor.mjs        local-only Piston stand-in

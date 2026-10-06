@@ -8,9 +8,11 @@ import { useStore, stats, update, defaults } from "@/lib/store";
 import { TopicLink } from "@/components/ui";
 import RevisionModal from "@/components/RevisionModal";
 import { toast } from "@/components/Toast";
+import { AccountCard } from "@/components/Account";
+import { useAccount } from "@/lib/sync";
 
 export default function ProgressView() {
-  const s = useStore(); const st = stats(s);
+  const s = useStore(); const st = stats(s); const acct = useAccount();
   const [confirm, setConfirm] = useState(false); const [rev, setRev] = useState<string | null>(null);
   const days: [string, boolean][] = []; const d = new Date(); d.setDate(d.getDate() - 34);
   for (let i = 0; i < 35; i++) { const k = d.toISOString().slice(0, 10); days.push([k, s.days.includes(k)]); d.setDate(d.getDate() + 1); }
@@ -19,6 +21,7 @@ export default function ProgressView() {
   return (
     <div className="stack">
       <span className="eyebrow">Progress tracker</span><h1>Your DSA progress</h1>
+      <AccountCard />
       <div className="card stack" style={{ gap: 10 }}><div className="row" style={{ justifyContent: "space-between" }}><b style={{ fontFamily: "var(--f-display)", fontSize: 18 }}>Overall</b><span className="mono" style={{ fontSize: 22, fontWeight: 600 }}>{st.pct}%</span></div><div className="bar" style={{ height: 12 }}><i style={{ width: `${st.pct}%` }} /></div><span className="faint" style={{ fontSize: 13 }}>Counts completed lessons ({LESSON_SLUGS.length}) and solved problems ({PROBLEMS.length}).</span></div>
       <div className="grid g4">
         <div className="card stat"><span className="l">Topics completed</span><span className="v">{st.topicsDone} <small style={{ fontSize: 14, color: "var(--faint)" }}>/ {TOPICS.length}</small></span></div>
@@ -42,7 +45,7 @@ export default function ProgressView() {
         <div className="card"><h3 style={{ marginBottom: 8 }}>Favourite topics</h3>{favs.length ? <ul className="clean">{favs.map(k => <li key={k}><TopicLink slug={k} /></li>)}</ul> : <p className="faint" style={{ fontSize: 14 }}>Star topics from their lesson page.</p>}</div>
         <div className="card"><h3 style={{ marginBottom: 8 }}>Problems to revise</h3>{toRevise.length ? <ul className="clean">{toRevise.map(p => <li key={p.id}><Link href={`/problems/${p.id}`}>{p.t}</Link></li>)}</ul> : <p className="faint" style={{ fontSize: 14 }}>Mark problems with ★ Revise to see them here.</p>}</div>
       </div>
-      <div className="card row" style={{ justifyContent: "space-between" }}><span className="muted" style={{ fontSize: 14 }}>Progress is saved in this browser. Clearing site data resets it.</span>
+      <div className="card row" style={{ justifyContent: "space-between" }}><span className="muted" style={{ fontSize: 14 }}>{acct.user ? "Progress is saved to your account. Resetting erases it there too, on every device." : "Progress is saved in this browser. Clearing site data resets it."}</span>
         {confirm ? <span className="row"><b style={{ color: "var(--bad)" }}>Erase all progress?</b><button className="btn sm" style={{ borderColor: "var(--bad)", color: "var(--bad)" }} onClick={() => { update(x => { const th = x.theme; Object.assign(x, defaults()); x.theme = th; }); setConfirm(false); toast("Progress erased"); }}>Yes, erase</button><button className="btn sm" onClick={() => setConfirm(false)}>Cancel</button></span>
           : <button className="btn sm ghost" onClick={() => setConfirm(true)}>Reset progress</button>}</div>
       {rev && <RevisionModal slug={rev} onClose={() => setRev(null)} />}
