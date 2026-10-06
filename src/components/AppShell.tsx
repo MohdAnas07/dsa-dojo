@@ -141,7 +141,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <div className="faint" style={{ fontSize: 11.5, padding: "14px 8px 0", display: "flex", gap: 10, flexWrap: "wrap" }}>
             <span><span className="dot now" style={{ display: "inline-block" }} /> Now</span><span><span className="dot next" style={{ display: "inline-block" }} /> Next</span><span><span className="dot later" style={{ display: "inline-block" }} /> Later</span><span><span className="dot adv" style={{ display: "inline-block" }} /> Advanced</span>
           </div>
-          <div className="faint" style={{ fontSize: 11.5, padding: "10px 8px 0" }}><Link href="/privacy" style={{ color: "inherit" }}>Privacy</Link></div>
+          <div className="faint" style={{ fontSize: 11.5, padding: "10px 8px 0" }}><Link href="/privacy" style={{ color: "inherit" }}>Privacy</Link> · <Link href="/term-of-service" style={{ color: "inherit" }}>Terms</Link></div>
         </aside>
         {navOpen && <div className="scrim" style={{ display: "block", position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", zIndex: 40 }} onClick={() => setNavOpen(false)} />}
         <div className="main">

@@ -44,7 +44,7 @@ You do not need to create tables. The two tables (`users`, `progress`) are creat
    - Authorized JavaScript origins: `https://your-domain.com` and `http://localhost:3000`
    - Authorized redirect URIs: `https://your-domain.com/api/auth/callback/google` and `http://localhost:3000/api/auth/callback/google`
 4. Copy the **Client ID** and **Client secret**.
-5. While the app's publishing status is **Testing**, only the test users you list can sign in. Switch it to **In production** when you are ready for everyone. Google may ask for a privacy policy link; this site has one at `/privacy` (read it and adjust it to your situation first).
+5. While the app's publishing status is **Testing**, only the test users you list can sign in. Switch it to **In production** when you are ready for everyone. Google may ask for a privacy policy link; this site has one at `/privacy` and terms at `/term-of-service` (read them and adjust them to your situation first).
 
 Google moves these screens around from time to time; the names above are the ones to look for.
 

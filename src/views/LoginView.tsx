@@ -53,7 +53,7 @@ export default function LoginView() {
             <li>We only receive your name, email address and profile picture from Google.</li>
             <li>You can keep using the site without an account.</li>
           </ul>
-          <p className="faint" style={{ fontSize: 13 }}>See the <Link href="/privacy">privacy page</Link> for exactly what is stored and how to delete it.</p>
+          <p className="faint" style={{ fontSize: 13 }}>See the <Link href="/privacy">privacy page</Link> for exactly what is stored and how to delete it, and the <Link href="/term-of-service">terms of service</Link>.</p>
         </>}
       </div>
     </div>
