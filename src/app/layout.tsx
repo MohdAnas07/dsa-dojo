@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import AppShell from "@/components/AppShell";
+import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
   title: { default: "DSA Dojo", template: "%s · DSA Dojo" },
@@ -24,6 +25,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <AppShell>{children}</AppShell>
+        {/* Anonymous visitor and page-view counts, shown in the Vercel dashboard → Analytics. No cookies. */}
+        <Analytics />
       </body>
     </html>
   );

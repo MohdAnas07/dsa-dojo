@@ -26,6 +26,11 @@ export default function Page() {
       </div>
 
       <div className="card stack" style={{ gap: 10 }}>
+        <h3>Visitor statistics</h3>
+        <p className="muted">To see how many people use the site, we count page visits with Vercel Web Analytics. It records which page was opened, the referring site, your country, and your browser and device type. It does not use cookies, does not store your IP address, and cannot identify you. We only see totals, such as visitors per day.</p>
+      </div>
+
+      <div className="card stack" style={{ gap: 10 }}>
         <h3>Running your code</h3>
         <p className="muted">JavaScript runs inside your own browser. Code in other languages is sent to a code-execution server, run in an isolated sandbox, and the output is returned to you. Running code does not save it anywhere new: the only saved copy is the editor draft described above.</p>
       </div>
