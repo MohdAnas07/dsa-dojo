@@ -9,6 +9,8 @@ import { useStore, update, today, nextTopic } from "@/lib/store";
 import expected from "@/generated/expected.json";
 import CodeBlock from "@/components/CodeBlock";
 import VisualExplanation from "@/components/VisualExplanation";
+import Player from "@/components/pv/Player";
+import { PVIZ } from "@/components/pv";
 import RevisionModal from "@/components/RevisionModal";
 import { Bullets, PriPill, ProblemRow, STATUS } from "@/components/ui";
 import { toast } from "@/components/Toast";
@@ -85,7 +87,9 @@ export default function LessonView({ slug }: { slug: string }) {
         ? <div className="stack">{beginner}<details><summary className="muted" style={{ cursor: "pointer" }}>Show the technical explanation</summary><div style={{ marginTop: 10 }}>{technical}</div></details></div>
         : <div className="stack">{technical}{beginner}</div>}</Sec>
       <Sec n={2}><div className="card analogy"><span className="big">≈</span><div><h3 style={{ marginBottom: 4 }}>{c.analogy.short}</h3><p className="muted">{c.analogy.text}</p></div></div></Sec>
-      <Sec n={3}><VisualExplanation kind={c.viz} /><p className="faint" style={{ fontSize: 13, marginTop: 8 }}>Change the inputs and run operations. Use ◀ ▶ to step through at your own pace.</p></Sec>
+      <Sec n={3}>{PVIZ[slug]
+        ? <><Player key={slug} viz={PVIZ[slug]} /><p className="faint" style={{ fontSize: 13, marginTop: 8 }}>Watch the code run line by line. Pick a scenario or type your own input, drag the timeline, or click the visualizer and use ← → and Space.</p></>
+        : <><VisualExplanation kind={c.viz} /><p className="faint" style={{ fontSize: 13, marginTop: 8 }}>Change the inputs and run operations. Use ◀ ▶ to step through at your own pace.</p></>}</Sec>
       <Sec n={4}>
         <div className="prose"><p style={{ fontSize: 15.5 }}>{c.why}</p></div>
         <div className="grid g2" style={{ marginTop: 14 }}>

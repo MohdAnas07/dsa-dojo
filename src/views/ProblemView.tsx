@@ -7,6 +7,7 @@ import { PROB, PAT, TOPIC, DIFF } from "@/lib/data";
 import { useStore, update, randomUnsolved } from "@/lib/store";
 import expected from "@/generated/expected.json";
 import CodeBlock from "@/components/CodeBlock";
+import VisualizeButton from "@/components/pv/VisualizeButton";
 import SolvePanel from "@/components/SolvePanel";
 import { ResizeHandle, useStoredNumber, clamp } from "@/components/ResizeHandle";
 import { JUDGE } from "@/content/judge";
@@ -51,7 +52,7 @@ export default function ProblemView({ id }: { id: string }) {
     ["Hint 1", <p>{p.h[0]}</p>],
     ["Hint 2", <p>{p.h[1]}</p>],
     ["Approach", <><p>{p.a}</p><p className="muted" style={{ marginTop: 8 }}>Patterns: {p.pats.map((x, i) => <span key={x}>{i > 0 && ", "}<Link href={`/patterns#${x}`}>{PAT[x]?.name || x}</Link></span>)} · Topics: {p.topics.map((x, i) => <span key={x}>{i > 0 && ", "}<TopicLink slug={x} /></span>)}</p></>],
-    ["Reference solution", <CodeBlock sample={p.c} expected={(expected.samples as Record<string, string>)[`problem.${id}`]} />],
+    ["Reference solution", <><div className="viz-cta"><span>Not sure why it works? Watch it run on the examples, line by line.</span><VisualizeButton id={id} /></div><CodeBlock sample={p.c} expected={(expected.samples as Record<string, string>)[`problem.${id}`]} /></>],
     ["Complexity", <div className="row"><span className="pill">Time <b className="cx" style={{ marginLeft: 4 }}>{p.tc}</b></span><span className="pill">Space <b className="cx" style={{ marginLeft: 4 }}>{p.sc}</b></span></div>],
     ["Follow-up questions", <ul className="clean">{p.f.map(x => <li key={x}><span>{x}</span></li>)}</ul>]
   ];

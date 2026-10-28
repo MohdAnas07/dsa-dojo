@@ -10,6 +10,7 @@ import type { JudgeSpec } from "@/lib/types";
 import { toast } from "./Toast";
 import { ResizeHandle, useStoredNumber, clamp } from "./ResizeHandle";
 import { showArgs, showVal } from "@/lib/show";
+import VisualizeButton from "./pv/VisualizeButton";
 import { trimHistory } from "@/lib/progress";
 
 let serverCheck: Promise<boolean> | null = null;
@@ -108,6 +109,7 @@ export default function SolvePanel({ id }: { id: string }) {
     return (
       <>
         <div className={`verdict ${cls}`}><b>{v}</b><span>{passed} / {total} tests passed{r.results.length ? ` · slowest ${maxMs < 1 ? "<1" : Math.round(maxMs)} ms` : ""}</span></div>
+        {r.mode === "submit" && <div className="viz-cta dark"><span>{cls === "good" ? "Accepted. Want to see exactly how the solution works?" : "Stuck? Watch the reference solution run step by step."}</span><VisualizeButton id={id} /></div>}
         <div className="row" style={{ gap: 6, marginBottom: 10 }}>
           {r.cases.map((cc, i) => {
             const y = r.results.find(z => z.i === i);
