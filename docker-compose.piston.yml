@@ -1,18 +1,35 @@
 # Self-hosted Piston code-execution server (https://github.com/engineer-man/piston)
-# Run on a Linux VM with Docker:  docker compose -f docker-compose.piston.yml up -d
-# Then install languages:         node scripts/piston-install.mjs http://localhost:2000
+# The public Piston API is closed (Feb 2026), so DSA Dojo runs its own instance.
+#
+# Needs: Docker + Docker Compose, cgroup v2 (default on modern Linux and Docker Desktop).
+#   npm run piston:up        → start the server on http://localhost:2000
+#   npm run piston:install   → install the languages DSA Dojo uses (Python, Java, C++, Go)
+#
+# The image is x86_64-only. On Apple Silicon, Docker Desktop runs it under emulation
+# (works, but compiles are slower). For production use an x86_64 Linux VM.
 services:
   piston:
     image: ghcr.io/engineer-man/piston
+    platform: linux/amd64
     container_name: piston
     restart: unless-stopped
     privileged: true            # required by Piston's isolate sandbox
     ports:
       - "127.0.0.1:2000:2000"   # only reachable from this machine; put a reverse proxy with auth in front if the web app runs elsewhere
+    environment:
+      # Piston's defaults are 3 s run / 1024 characters of output. Requests above these limits are
+      # rejected with HTTP 400, and the judge prints far more than 1 KB, so raise them.
+      # These are the maximums; /api/execute asks for RUN_TIMEOUT_MS (default 10 s) per run.
+      PISTON_RUN_TIMEOUT: "15000"
+      PISTON_RUN_CPU_TIME: "15000"
+      PISTON_COMPILE_TIMEOUT: "30000"       # Java / C++ compiles are slower under emulation (Apple Silicon)
+      PISTON_COMPILE_CPU_TIME: "30000"
+      PISTON_OUTPUT_MAX_SIZE: "4194304"     # 4 MB of stdout/stderr
+      PISTON_MAX_PROCESS_COUNT: "128"       # the JVM (Java) starts many threads
+      PISTON_MAX_CONCURRENT_JOBS: "16"
     volumes:
       - piston-packages:/piston/packages
     tmpfs:
-      - /piston/jobs:exec,uid=1000,gid=1000,mode=711
       - /tmp:exec
 volumes:
   piston-packages:

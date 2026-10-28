@@ -97,36 +97,51 @@ Each user has one row in `users` (Google id, email, name, picture, first and las
 - *Sign-in returns to `/login` with an error*: the database could not be reached; check `DATABASE_URL`. A "self-signed certificate" error means your provider's certificate is not publicly trusted; follow their Node.js instructions for the connection string.
 - *Saves limited*: `SAVES_PER_MINUTE` (default 60 per user, per server instance) and `DATABASE_POOL_MAX` (default 5 connections) can be raised with environment variables.
 
-## Enable other languages (Python, Java, C++, C, Go, TypeScript)
+## Enable other languages (Python, Java, C++, Go)
 
-Server languages are sent from `/api/execute` to a **Piston** server, which runs each submission in an isolated sandbox with time and memory limits. Never run user code directly on your web server.
+Server languages are sent from `/api/execute` to a **Piston** server ([engineer-man/piston](https://github.com/engineer-man/piston)), which runs each submission in an isolated sandbox with time and memory limits. Never run user code directly on your web server. The public Piston API is no longer open (since Feb 2026), so you run your own instance.
 
-1. Get a small Linux VM with Docker (any VPS provider; 1–2 GB RAM is enough to start). Piston needs `privileged` containers, which most "serverless" hosts don't allow.
+### Locally (Docker Desktop)
+
+```bash
+# Open Docker Desktop first, then:
+npm run piston:setup     # = piston:up (starts Piston on http://127.0.0.1:2000) + piston:install
+#   installs Python, Java, C++ (gcc) and Go (first time: several minutes)
+npm run dev              # .env.local already points PISTON_URL at http://127.0.0.1:2000
+```
+
+The Piston image is x86_64-only; on Apple Silicon Docker Desktop runs it under emulation, which works but compiles more slowly. `npm run piston:logs` shows the server log, `npm run piston:down` stops it. The playground marks languages that aren't installed yet.
+
+`docker-compose.piston.yml` raises Piston's default limits (3 s run time, **1024 characters of output**). Keep those: with the defaults, Piston rejects the app's 10 s timeout with HTTP 400 and cuts off judge output.
+
+### In production
+
+1. Get a small x86_64 Linux VM with Docker (any VPS provider; 2 GB RAM is enough to start). Piston needs `privileged` containers and cgroup v2, which most "serverless" hosts don't allow.
 2. Copy `docker-compose.piston.yml` and `scripts/piston-install.mjs` to the VM, then:
    ```bash
    docker compose -f docker-compose.piston.yml up -d
    node scripts/piston-install.mjs http://localhost:2000
    ```
-3. Make Piston reachable from your web app over HTTPS, protected so only your app can call it (for example a reverse proxy such as Caddy or Nginx with a secret header, or a private network). If you add a header check, put the same value in `PISTON_TOKEN`.
+3. Make Piston reachable from your web app over HTTPS, protected so only your app can call it (for example a reverse proxy such as Caddy or Nginx that checks a secret `Authorization` header, or a private network). Put the same value in `PISTON_TOKEN`.
 4. In your hosting dashboard (Vercel → Project → Settings → Environment Variables) set:
    ```
    PISTON_URL=https://your-piston-host
    PISTON_TOKEN=your-secret        # optional
    ```
-5. Redeploy. The language menu on problems and in the playground now runs Python and the others.
+5. Redeploy. The language menu in the playground (and Python on problems) now runs on the server.
 
 Without `PISTON_URL`, the site still works and shows a note that server languages aren't configured.
 
-**Local development without Docker:** `node scripts/dev-executor.mjs` starts a stand-in for Piston on `127.0.0.1:2000` that runs code with your locally installed `python3`, `node`, `g++`, `javac`, `go`. It is **not sandboxed**: use it only on your own machine. Then create `.env.local` with `PISTON_URL=http://127.0.0.1:2000`.
+**Local development without Docker:** `npm run dev:executor` starts a stand-in for Piston on `127.0.0.1:2000` that runs code with your locally installed `python3`, `node`, `g++`, `javac` and `go`. It is **not sandboxed**: use it only on your own machine.
 
-API limits are set by `RUN_TIMEOUT_MS` (default 10 s per run) and `RATE_LIMIT_PER_MINUTE` (default 30 per IP, per server instance). For multiple instances, replace the in-memory limiter in `src/app/api/execute/route.ts` with Redis/Upstash.
+Limits: `RUN_TIMEOUT_MS` (default 10 s per run), `COMPILE_TIMEOUT_MS` (default 15 s) and `RATE_LIMIT_PER_MINUTE` (default 30 per IP, per server instance). They must stay at or below the `PISTON_*` limits in `docker-compose.piston.yml`. For multiple instances, replace the in-memory limiter in `src/app/api/execute/route.ts` with Redis/Upstash.
 
 ## How code runs
 
 | Where | Language | How |
 |---|---|---|
 | Code samples in lessons, JS playground, JS judge | JavaScript | A throwaway Web Worker in the visitor's browser (no page or network access), killed after a timeout |
-| Playground | Python, Java, C++, C, Go, TypeScript | `POST /api/execute` → Piston |
+| Playground | Python, Java, C++, Go | `POST /api/execute` → Piston |
 | Problem judge | Python | The Python driver (`src/lib/drivers/python.ts`) wraps the user's `class Solution`, reads the tests from stdin as JSON, and prints one result line per test. The browser compares results with the expected answers. |
 
 Expected answers come from the JavaScript reference solutions at build time, so every language is checked against the same answers. Large hidden tests (100,000 elements) catch O(n²) solutions; each test also has a time limit (1 s in the browser, 2 s on the server).
@@ -168,7 +183,7 @@ scripts/
 
 **Add a problem:** add a `ProblemDef` to the matching file in `src/content/problemsets/` (see `src/lib/types.ts`). Key fields: `tp` (every topic it uses), `pt` (every pattern), `sim` (optional hand-picked similar ids), `fn` + `params` (`"nums:number[], k:number"`), `ret`, `ex` (examples as `[...args, expected]`), `hid` (hidden test inputs; expected outputs are computed from `code`, the JavaScript reference solution), plus `cmp`/`check` when several answers are correct and `ctor`/`methods` for design problems. Parameter types: `number`, `double`, `number[]`, `number[][]`, `string`, `string[]`, `string[][]`, `character[][]`, `boolean`, `ListNode`, `ListNode[]`, `TreeNode`, `cycle`. Then run `npm run verify`: it runs every reference solution, checks the examples, validators, tags and timing, and makes sure every JS and Python starter parses.
 
-**Add a language to the playground:** add it to `LANGUAGES` in `src/lib/languages.ts` with its Piston name (and optionally a CodeMirror highlighter in `src/components/CodeEditor.tsx`).
+**Add a language to the playground:** add it to `LANGUAGES` in `src/lib/languages.ts` with its Piston runtime name and package, add the package to `WANT` in `scripts/piston-install.mjs`, and add a CodeMirror highlighter in `src/components/CodeEditor.tsx`.
 
 **Add judging for a language** (e.g. Java): write `src/lib/drivers/java.ts` with
 1. a starter-code generator (`class Solution { public int[] twoSum(int[] nums, int target) { … } }`),

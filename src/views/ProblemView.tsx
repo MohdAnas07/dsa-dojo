@@ -8,13 +8,31 @@ import { useStore, update, randomUnsolved } from "@/lib/store";
 import expected from "@/generated/expected.json";
 import CodeBlock from "@/components/CodeBlock";
 import SolvePanel from "@/components/SolvePanel";
+import { ResizeHandle, useStoredNumber, clamp } from "@/components/ResizeHandle";
+import { JUDGE } from "@/content/judge";
+import { STATEMENTS } from "@/content/statements";
+import { expectedFor } from "@/lib/runner";
+import { showArgs, showVal } from "@/lib/show";
 import { STATUS, STATUS_ORDER, TopicLink } from "@/components/ui";
 import { toast } from "@/components/Toast";
+
+const DEFAULT_LEFT = 46.5; // matches the default 1 : 1.15 columns
 
 export default function ProblemView({ id }: { id: string }) {
   const p = PROB[id];
   const s = useStore();
   const router = useRouter();
+  // Width of the problem column, in % of the row (null = default). Drag the divider to change it.
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [leftPct, setLeftPct] = useStoredNumber("dojo-split-left", null);
+  const clampPct = (pct: number) => {
+    const w = gridRef.current?.getBoundingClientRect().width || 1200;
+    return clamp(pct, (320 / w) * 100, 100 - (420 / w) * 100); // keep at least 320px for the problem and 420px for the editor
+  };
+  const dragSplit = (x: number) => {
+    const r = gridRef.current?.getBoundingClientRect(); if (!r) return;
+    setLeftPct(clampPct(((x - r.left) / r.width) * 100));
+  };
   const [open, setOpen] = useState(1);
   const [timer, setTimer] = useState<number | null>(null);
   const [rand, setRand] = useState<string | null>(null);
@@ -24,7 +42,7 @@ export default function ProblemView({ id }: { id: string }) {
   const st = s.ps[id] || "todo";
   const idx = PROBLEMS.indexOf(p); const prev = PROBLEMS[idx - 1], next = PROBLEMS[idx + 1];
   const steps: [string, React.ReactNode][] = [
-    ["Problem", <><p style={{ fontSize: 15.5 }}>{p.s}</p><pre className="cheat" style={{ marginTop: 10 }}>{p.eg}</pre></>],
+    ["Problem", <ProblemStatement id={id} summary={p.s} fallbackExample={p.eg} />],
     ["Think for yourself", <><p className="muted">Before any hint: restate the problem in your own words, write one small example by hand, and describe the brute force. What is its complexity? Then try coding it in the editor.</p>
       <div className="row" style={{ marginTop: 10 }}><button className="btn sm" onClick={() => {
         clearInterval(tRef.current); let left = 600; setTimer(left);
@@ -52,7 +70,7 @@ export default function ProblemView({ id }: { id: string }) {
         <span style={{ flex: 1 }} />
         <button className="btn sm ghost" onClick={() => router.push(`/mistakes?problem=${id}`)}>+ Log a mistake</button>
       </div>
-      <div className="solve-grid">
+      <div className="solve-grid resizable" ref={gridRef} style={leftPct !== null ? ({ "--left": leftPct + "%" } as React.CSSProperties) : undefined}>
         <div className="stack" style={{ gap: 10 }}>
           <div className="card" style={{ padding: "12px 16px", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
             <b style={{ fontFamily: "var(--f-display)" }}>Interview mode</b><span className="muted" style={{ fontSize: 14, flex: 1, minWidth: 180 }}>Steps unlock one at a time.</span>
@@ -82,6 +100,7 @@ export default function ProblemView({ id }: { id: string }) {
               </div>); })}</div>
           </div>}
         </div>
+        <div className="split-gutter"><ResizeHandle dir="x" label="Resize problem and code panels" onMove={dragSplit} onStep={d => setLeftPct(clampPct((leftPct ?? DEFAULT_LEFT) + d * 2))} onReset={() => setLeftPct(null)} /></div>
         <div className="solve-col"><SolvePanel id={id} /></div>
       </div>
       <div className="row" style={{ justifyContent: "space-between", borderTop: "1px solid var(--line)", paddingTop: 16 }}>
@@ -89,6 +108,38 @@ export default function ProblemView({ id }: { id: string }) {
         {rand && <Link className="btn" href={`/problems/${rand}`}>Random problem</Link>}
         {next ? <Link className="btn" href={`/problems/${next.id}`}>{next.t} →</Link> : <span />}
       </div>
+    </div>
+  );
+}
+
+/** Renders `inline code` inside statement text. */
+function Rich({ text }: { text: string }) {
+  return <>{text.split(/(`[^`]+`)/g).map((part, i) => part.startsWith("`") && part.endsWith("`") && part.length > 1 ? <code key={i}>{part.slice(1, -1)}</code> : part)}</>;
+}
+
+/** LeetCode-style statement: description, every visible example with an explanation, constraints. */
+function ProblemStatement({ id, summary, fallbackExample }: { id: string; summary: string; fallbackExample: string }) {
+  const st = STATEMENTS[id];
+  const sp = JUDGE[id];
+  const answers = expectedFor(id)?.cases || [];
+  const cases = sp?.cases || [];
+  return (
+    <div className="pstmt">
+      {(st?.body || [summary]).map((para, i) => <p key={i}><Rich text={para} /></p>)}
+      {cases.length ? cases.map((args, i) => (
+        <div key={i} className="pex">
+          <div className="pex-h">Example {i + 1}</div>
+          <pre className="pex-b"><b>Input:</b>{sp.design ? "\n" : " "}{showArgs(sp, args as unknown[]).split("\n").join(sp.design ? "\n" : ", ")}{"\n"}<b>Output:</b> {showVal(answers[i])}{st?.why?.[i] ? <>{"\n"}<b>Explanation:</b> {st.why[i]}</> : null}</pre>
+        </div>
+      )) : <pre className="cheat" style={{ marginTop: 10 }}>{fallbackExample}</pre>}
+      {!!st?.walk?.length && cases.length > 0 && <>
+        <div className="pex-h">Walkthrough of Example 1</div>
+        <ol className="pwalk">{st.walk.map((w, i) => <li key={i}><Rich text={w} /></li>)}</ol>
+      </>}
+      {!!st?.cons?.length && <>
+        <div className="pex-h">Constraints</div>
+        <ul className="pcons">{st.cons.map((c, i) => <li key={i}><Rich text={c} /></li>)}</ul>
+      </>}
     </div>
   );
 }

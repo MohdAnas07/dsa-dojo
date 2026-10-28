@@ -6,10 +6,10 @@
  * save arbitrary JSON: unknown keys are dropped, types are checked and sizes are capped.
  */
 import { isLangId, type LangId } from "./languages";
-import type { Mistake, PStatus, State, Submission } from "./store";
+import type { Attempt, Mistake, PStatus, State, Submission } from "./store";
 
 /** Keys synced to the account. `theme` and `navClosed` stay per-device on purpose. */
-export const SYNC_KEYS = ["done", "fav", "weak", "rev", "ps", "last", "days", "mist", "fk", "eli", "code", "subs", "pg", "pgLang", "lang"] as const;
+export const SYNC_KEYS = ["done", "fav", "weak", "rev", "ps", "last", "days", "mist", "fk", "eli", "code", "subs", "hist", "pg", "pgLang", "lang"] as const;
 export type SyncKey = (typeof SYNC_KEYS)[number];
 export type ProgressDoc = Pick<State, SyncKey>;
 
@@ -18,10 +18,13 @@ export const MAX_DOC_BYTES = 1_500_000;
 const MAX_KEYS = 5000, MAX_ID = 120, MAX_MISTAKES = 500, MAX_DAYS = 400;
 /** Longest editor draft and longest mistake-note field that is saved. Longer text is cut to this length, never dropped. */
 export const MAX_CODE = 64 * 1024, MAX_NOTE = 10_000;
+/** Submission history: at most this many entries, each entry's code capped, and the code of all entries together capped.
+ *  Past the total, the oldest entries keep their result but lose their code. */
+export const MAX_HIST = 300, MAX_HIST_CODE = 16 * 1024, MAX_HIST_TOTAL = 400 * 1024;
 
 export const emptyProgress = (): ProgressDoc => ({
   done: {}, fav: {}, weak: {}, rev: {}, ps: {}, last: null, days: [], mist: [], fk: {}, eli: false,
-  code: {}, subs: {}, pg: {}, pgLang: "javascript", lang: "javascript"
+  code: {}, subs: {}, hist: [], pg: {}, pgLang: "javascript", lang: "javascript"
 });
 
 export function pickProgress(s: State): ProgressDoc {
@@ -32,7 +35,7 @@ export function pickProgress(s: State): ProgressDoc {
 
 /** True when there is nothing worth saving (a visitor who has not done anything yet). */
 export function isEmptyProgress(d: ProgressDoc): boolean {
-  return !d.days.length && !d.mist.length && !d.last
+  return !d.days.length && !d.mist.length && !d.hist.length && !d.last
     && [d.done, d.fav, d.weak, d.rev, d.ps, d.fk, d.code, d.subs, d.pg].every(o => Object.keys(o).length === 0);
 }
 
@@ -101,7 +104,32 @@ export function sanitizeProgress(input: unknown): ProgressDoc {
     }
     d.mist = d.mist.slice(-MAX_MISTAKES); // notes are appended, so this keeps the newest
   }
+  if (Array.isArray(input.hist)) {
+    const seen = new Set<string>();
+    for (const h of input.hist) {
+      if (!isObj(h)) continue;
+      const id = str(h.id, 40), prob = str(h.prob, MAX_ID), at = str(h.at, 40), verdict = str(h.verdict, 200), code = text(h.code, MAX_HIST_CODE);
+      const num = (v: unknown, max: number) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.min(Math.round(v), max) : 0);
+      if (id === null || prob === null || at === null || verdict === null || code === null || !isLangId(h.lang) || seen.has(id)) continue;
+      seen.add(id);
+      d.hist.push({ id, prob, at, verdict, ok: h.ok === true, lang: h.lang, passed: num(h.passed, 10_000), total: num(h.total, 10_000), ms: num(h.ms, 3_600_000), code });
+    }
+    d.hist = trimHistory(d.hist);
+  }
   return d;
+}
+
+const byAt = (a: Attempt, b: Attempt) => (a.at < b.at ? -1 : a.at > b.at ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+
+/** Sorts history oldest first and applies the size limits. Used both when saving locally and by the server, so the two agree. */
+export function trimHistory(list: Attempt[]): Attempt[] {
+  const out = [...list].sort(byAt).slice(-MAX_HIST).map(h => (h.code.length > MAX_HIST_CODE ? { ...h, code: h.code.slice(0, MAX_HIST_CODE) } : h));
+  let total = 0;
+  for (let i = out.length - 1; i >= 0; i--) {
+    total += out[i].code.length;
+    if (total > MAX_HIST_TOTAL && out[i].code) out[i] = { ...out[i], code: "" };
+  }
+  return out;
 }
 
 const RANK: Record<PStatus, number> = { attempted: 1, solved: 2, revise: 3 };
@@ -134,6 +162,8 @@ export function mergeProgress(mine: ProgressDoc, theirs: ProgressDoc, prefs: "mi
   out.days = [...new Set([...theirs.days, ...mine.days])].sort().slice(-MAX_DAYS);
   const ids = new Set(mine.mist.map(m => m.id));
   out.mist = [...theirs.mist.filter((m: Mistake) => !ids.has(m.id)), ...mine.mist].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)).slice(-MAX_MISTAKES);
+  const hids = new Set(mine.hist.map(h => h.id));
+  out.hist = trimHistory([...theirs.hist.filter(h => !hids.has(h.id)), ...mine.hist]);
   out.last = mine.last ?? theirs.last;
   // Settings (language, explanation mode) have no "both": one side is chosen.
   const p = prefs === "mine" ? mine : theirs;
@@ -143,7 +173,7 @@ export function mergeProgress(mine: ProgressDoc, theirs: ProgressDoc, prefs: "mi
 
 // ---------- tracking what changed in this browser ----------
 // A "path" names one saved thing: "ps/two-sum" (one problem's status), "code/two-sum:javascript"
-// (one editor draft), "days/2026-10-06", "mist/<id>", or a whole setting such as "lang".
+// (one editor draft), "days/2026-10-06", "mist/<id>", "hist/<id>", or a whole setting such as "lang".
 
 const MAPS = ["done", "fav", "weak", "rev", "ps", "fk", "code", "subs", "pg"] as const;
 const SETTINGS = ["last", "eli", "pgLang", "lang"] as const;
@@ -162,6 +192,8 @@ export function diffPaths(a: ProgressDoc, b: ProgressDoc): string[] {
   for (const d of new Set([...da, ...db])) if (da.has(d) !== db.has(d)) out.push("days/" + d);
   const ma = new Map((a.mist || []).map(m => [m.id, m])), mb = new Map((b.mist || []).map(m => [m.id, m]));
   for (const id of new Set([...ma.keys(), ...mb.keys()])) if (!same(ma.get(id), mb.get(id))) out.push("mist/" + id);
+  const ha = new Map((a.hist || []).map(h => [h.id, h])), hb = new Map((b.hist || []).map(h => [h.id, h]));
+  for (const id of new Set([...ha.keys(), ...hb.keys()])) if (!same(ha.get(id), hb.get(id))) out.push("hist/" + id);
   return out;
 }
 
@@ -188,8 +220,13 @@ export function applyLocalChanges(theirs: ProgressDoc, mine: ProgressDoc, paths:
       const m = mine.mist.find(x => x.id === e);
       out.mist = out.mist.filter(x => x.id !== e);
       if (m) out.mist.push(m);
+    } else if (k === "hist") {
+      const h = mine.hist.find(x => x.id === e);
+      out.hist = out.hist.filter(x => x.id !== e);
+      if (h) out.hist.push(h);
     }
   }
+  out.hist = trimHistory(out.hist || []);
   out.days = [...new Set(out.days)].sort().slice(-MAX_DAYS);
   out.mist = out.mist.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0)).slice(-MAX_MISTAKES);
   return out;

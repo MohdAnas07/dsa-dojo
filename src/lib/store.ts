@@ -1,6 +1,6 @@
 "use client";
 import { useSyncExternalStore } from "react";
-import type { LangId } from "./languages";
+import { isLangId, type LangId } from "./languages";
 import { PROBLEMS } from "@/content/problems";
 import { TOPIC, LESSON_SLUGS, LESSON_PATH } from "./data";
 import { LESSONS } from "@/content/lessons";
@@ -9,16 +9,18 @@ import { PATH } from "@/content/roadmap";
 export type PStatus = "attempted" | "solved" | "revise";
 export interface Mistake { id: string; prob: string; wrong: string; right: string; pat: string; date: string }
 export interface Submission { verdict: string; ok: boolean; date: string; lang: LangId }
+/** One press of Submit: kept in `hist`, newest last. `at` is an ISO timestamp. */
+export interface Attempt { id: string; prob: string; at: string; verdict: string; ok: boolean; lang: LangId; passed: number; total: number; ms: number; code: string }
 export interface State {
   done: Record<string, string>; fav: Record<string, 1>; weak: Record<string, 1>; rev: Record<string, string>;
   ps: Record<string, PStatus>; last: string | null; days: string[]; mist: Mistake[]; fk: Record<string, "known" | "again">;
   eli: boolean; theme: "light" | "dark" | null; navClosed: Record<string, boolean>;
   /** saved editor drafts: `${problemId}:${lang}` → code */
-  code: Record<string, string>; subs: Record<string, Submission>;
+  code: Record<string, string>; subs: Record<string, Submission>; hist: Attempt[];
   pg: Partial<Record<LangId, string>>; pgLang: LangId; lang: LangId;
 }
 const KEY = "dsa-dojo-v2";
-export const defaults = (): State => ({ done: {}, fav: {}, weak: {}, rev: {}, ps: {}, last: null, days: [], mist: [], fk: {}, eli: false, theme: null, navClosed: {}, code: {}, subs: {}, pg: {}, pgLang: "javascript", lang: "javascript" });
+export const defaults = (): State => ({ done: {}, fav: {}, weak: {}, rev: {}, ps: {}, last: null, days: [], mist: [], fk: {}, eli: false, theme: null, navClosed: {}, code: {}, subs: {}, hist: [], pg: {}, pgLang: "javascript", lang: "javascript" });
 const SERVER = defaults();
 let state: State = SERVER;
 let loaded = false;
@@ -28,7 +30,12 @@ const emit = () => listeners.forEach(l => l());
 function read(): State | null {
   try {
     const raw = localStorage.getItem(KEY) ?? localStorage.getItem("dsa-dojo-v1");
-    return raw ? { ...defaults(), ...JSON.parse(raw) } : null;
+    if (!raw) return null;
+    const st: State = { ...defaults(), ...JSON.parse(raw) };
+    // A language may have been removed since this was saved; fall back to JavaScript.
+    if (!isLangId(st.pgLang)) st.pgLang = "javascript";
+    if (!isLangId(st.lang)) st.lang = "javascript";
+    return st;
   } catch { return null; /* storage unavailable or corrupt: keep what we have */ }
 }
 function load() {

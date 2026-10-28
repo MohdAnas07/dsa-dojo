@@ -50,7 +50,8 @@ export function runJS(code: string, timeoutMs = 3000): Promise<RunOutput> {
   });
 }
 
-export interface ServerRun { stdout: string; stderr: string; exitCode: number | null; signal: string | null; compileOutput: string | null; timeMs: number; error?: string }
+/** status: Piston's two-letter code (TO timeout, OL/EL output limit, SG signal, RE runtime error, XX internal); message: readable reason */
+export interface ServerRun { stdout: string; stderr: string; exitCode: number | null; signal: string | null; status?: string | null; message?: string | null; compileOutput: string | null; timeMs: number; error?: string }
 /** Run code in any server language through /api/execute. */
 export async function runOnServer(language: LangId, code: string, stdin = ""): Promise<ServerRun> {
   try {
@@ -174,9 +175,10 @@ export async function runJudge(id: string, lang: LangId, mode: "run" | "submit",
     if (cur < 0) logs.push(line); else (perCase[cur] = perCase[cur] || []).push(line);
   }
   const stderr = (run.stderr || "").replace(/File "[^"]*", line (\d+)/g, (_, n) => `line ${Math.max(1, Number(n) - PY_USER_OFFSET)}`);
-  if (!results.length && (run.exitCode !== 0 || stderr)) return { mode, lang, cases, results: [], logs, compile: stderr.trim() || "Your program exited with an error." };
+  if (!results.length && run.status === "TO") return { mode, lang, cases, results: [{ i: 0, ms: 0, tle: true, pass: false }], logs, compile: null };
+  if (!results.length && (run.exitCode !== 0 || stderr)) return { mode, lang, cases, results: [], logs, compile: stderr.trim() || run.message || "Your program exited with an error." };
   if (results.length < cases.length) {
-    const killed = run.signal === "SIGKILL" || /Timeout|timed out/i.test(stderr);
+    const killed = run.status === "TO" || run.signal === "SIGKILL" || /Timeout|timed out/i.test(stderr);
     results.push({ i: results.length, ms: 0, ...(killed ? { tle: true } : { error: stderr.trim().split("\n").slice(-3).join("\n") || "Program stopped early." }), pass: false });
   }
   if (mode === "submit") { const f = results.findIndex(r => r.pass === false); if (f >= 0) results.splice(f + 1); }

@@ -5,7 +5,7 @@
  * or use it in production. It only listens on 127.0.0.1.
  *
  * Usage:  node scripts/dev-executor.mjs        (then set PISTON_URL=http://127.0.0.1:2000 in .env.local)
- * Supports: python (python3), javascript/typescript (node), c++ (g++), c (gcc), java (javac/java), go (go run) — whichever are installed.
+ * Supports: python (python3), javascript (node), c++ (g++), java (javac/java), go (go run) — whichever are installed.
  */
 import http from "node:http";
 import { spawn } from "node:child_process";
@@ -17,9 +17,7 @@ const PORT = Number(process.env.PORT || 2000);
 const RUNNERS = {
   python: f => [["python3", [f]]],
   javascript: f => [["node", [f]]],
-  typescript: f => [["node", ["--experimental-strip-types", f]]],
   "c++": (f, d) => [["g++", ["-O2", "-o", path.join(d, "a.out"), f]], [path.join(d, "a.out"), []]],
-  c: (f, d) => [["gcc", ["-O2", "-o", path.join(d, "a.out"), f]], [path.join(d, "a.out"), []]],
   java: (f, d) => [["javac", [f]], ["java", ["-cp", d, "Main"]]],
   go: f => [["go", ["run", f]]]
 };

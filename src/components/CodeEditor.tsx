@@ -11,16 +11,14 @@ import { java } from "@codemirror/lang-java";
 import { cpp } from "@codemirror/lang-cpp";
 import { go } from "@codemirror/lang-go";
 import { useMemo, useRef } from "react";
-import type { LangId } from "@/lib/languages";
+import { LANG, type LangId } from "@/lib/languages";
 
 /** Syntax support per language. Add new languages here. */
 const LANG_EXT: Record<LangId, () => Extension> = {
   javascript: () => javascript(),
-  typescript: () => javascript({ typescript: true }),
   python: () => python(),
   java: () => java(),
   cpp: () => cpp(),
-  c: () => cpp(),
   go: () => go()
 };
 
@@ -53,7 +51,7 @@ export default function CodeEditor({ value, onChange, lang, onRun, onSubmit }: C
   ], [lang]);
   return (
     <CodeMirror value={value} onChange={onChange} extensions={extensions} theme="none" height="100%" style={{ height: "100%" }}
-      basicSetup={{ lineNumbers: true, foldGutter: false, highlightActiveLine: true, bracketMatching: true, closeBrackets: true, autocompletion: true, indentOnInput: true, tabSize: lang === "python" || lang === "java" || lang === "cpp" || lang === "c" ? 4 : 2 }}
+      basicSetup={{ lineNumbers: true, foldGutter: false, highlightActiveLine: true, bracketMatching: true, closeBrackets: true, autocompletion: true, indentOnInput: true, tabSize: LANG[lang].tab }}
       aria-label="Code editor" />
   );
 }

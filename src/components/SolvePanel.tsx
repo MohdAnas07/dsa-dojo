@@ -8,17 +8,9 @@ import { runJudge, verdictOf, expectedFor, type JudgeResult, type CaseResult } f
 import { useStore, update, today, getState, useRemoteEpoch } from "@/lib/store";
 import type { JudgeSpec } from "@/lib/types";
 import { toast } from "./Toast";
-
-const showVal = (v: unknown): string => {
-  if (v && typeof v === "object" && !Array.isArray(v)) {
-    const o = v as Record<string, unknown>;
-    if (o.__undef) return "undefined"; if (o.__str) return String(o.__str); if (o.__hash) return "(large output, checked by fingerprint)"; if (o.__map) return "Map " + JSON.stringify(o.__map);
-  }
-  const s = JSON.stringify(v); return s === undefined ? "undefined" : s.length > 400 ? s.slice(0, 400) + `… (${s.length} chars)` : s;
-};
-const showArgs = (sp: JudgeSpec, args: unknown[]) => sp.design
-  ? `${JSON.stringify(args[0])}\n${JSON.stringify(args[1])}`
-  : sp.params.map(([n, t], i) => t === "cycle" ? `head = ${JSON.stringify((args[i] as unknown[])[0])}, pos = ${(args[i] as unknown[])[1]}` : `${n} = ${JSON.stringify(args[i])}`).join("\n");
+import { ResizeHandle, useStoredNumber, clamp } from "./ResizeHandle";
+import { showArgs, showVal } from "@/lib/show";
+import { trimHistory } from "@/lib/progress";
 
 let serverCheck: Promise<boolean> | null = null;
 const serverConfigured = () => (serverCheck = serverCheck || fetch("/api/execute").then(r => r.json()).then(d => !!d.configured).catch(() => false));
@@ -41,6 +33,15 @@ export default function SolvePanel({ id }: { id: string }) {
   const [server, setServer] = useState<boolean | null>(null);
   const saveT = useRef<ReturnType<typeof setTimeout>>(undefined);
   const panelRef = useRef<HTMLElement>(null);
+  // Height of the Testcases / Result area in px (null = default). Drag the divider above it to change it.
+  const [bottomH, setBottomH] = useStoredNumber("dojo-split-bottom", null);
+  const clampBottom = (h: number) => {
+    const el = panelRef.current; if (!el) return h;
+    const top = (el.querySelector(".solve-top") as HTMLElement | null)?.offsetHeight || 50;
+    return clamp(h, 52, el.clientHeight - top - 120); // keep the tab bar visible and at least 120px of editor
+  };
+  const dragBottom = (y: number) => { const r = panelRef.current?.getBoundingClientRect(); if (r) setBottomH(clampBottom(r.bottom - y)); };
+  const currentBottom = () => (panelRef.current?.querySelector(".solve-bottom") as HTMLElement | null)?.offsetHeight || 260;
 
   const epoch = useRemoteEpoch();
   // What this editor last loaded from, or wrote to, the saved state. If the text on screen still
@@ -81,6 +82,8 @@ export default function SolvePanel({ id }: { id: string }) {
       const [v, cls] = verdictOf(r);
       update(x => {
         x.subs[id] = { verdict: v, ok: cls === "good", date: today(), lang };
+        const passed = r.results.filter(c => c.pass === true).length, ms = Math.round(r.results.reduce((t, c) => t + (c.ms || 0), 0));
+        x.hist = trimHistory([...(x.hist || []), { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), prob: id, at: new Date().toISOString(), verdict: v, ok: cls === "good", lang, passed, total: r.cases.length, ms, code }]);
         const cur = x.ps[id];
         if (cls === "good" && cur !== "solved" && cur !== "revise") x.ps[id] = "solved";
         if (cls !== "good" && !cur) x.ps[id] = "attempted";
@@ -126,7 +129,7 @@ export default function SolvePanel({ id }: { id: string }) {
   }
 
   return (
-    <section className="solve" aria-label="Code editor" ref={panelRef}>
+    <section className={"solve" + (bottomH !== null ? " sized" : "")} aria-label="Code editor" ref={panelRef} style={bottomH !== null ? ({ "--bottom-h": bottomH + "px" } as React.CSSProperties) : undefined}>
       <div className="solve-top">
         <select className="lang-select" aria-label="Language" value={lang} onChange={e => update(x => { x.lang = e.target.value as LangId; })}>
           {JUDGE_LANGS.map(l => <option key={l} value={l}>{LANG[l].label}</option>)}
@@ -145,6 +148,7 @@ export default function SolvePanel({ id }: { id: string }) {
       {sp.note && <div className="solve-note">{sp.note}</div>}
       {LANG[lang].runtime === "server" && server === false && <div className="solve-note" style={{ color: "#f6c85f" }}>{LANG[lang].label} runs on a code-execution server, which isn&apos;t set up for this site yet (see README → &quot;Enable other languages&quot;). JavaScript works right away.</div>}
       <div className="editor-host"><Editor value={code} onChange={onChange} lang={lang} onRun={() => judge("run")} onSubmit={() => judge("submit")} /></div>
+      <ResizeHandle dir="y" className="solve-hsplit" label="Resize editor and test panel" onMove={dragBottom} onStep={d => setBottomH(clampBottom((bottomH ?? currentBottom()) - d * 24))} onReset={() => setBottomH(null)} />
       <div className="solve-bottom">
         <div className="tabs" role="tablist" style={{ margin: "0 0 10px" }}>
           {(["cases", "result", "console"] as const).map(t => <button key={t} className={tab === t ? "on" : ""} onClick={() => setTab(t)}>{t === "cases" ? "Testcases" : t === "result" ? "Result" : "Console"}</button>)}

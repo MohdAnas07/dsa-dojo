@@ -19,7 +19,7 @@ const NAV: [string, React.ComponentType<{ size?: number }>, NavItem[]][] = [
   ["Data Structures", Boxes, [["Arrays", "/learn/arrays"], ["Strings", "/learn/strings"], ["HashMap / Set", "/learn/hashing"], ["Linked List", "/learn/linked-list"], ["Stack", "/learn/stack"], ["Queue", "/learn/queue"], ["Trees", "/learn/trees"], ["Heap", "/learn/heap"], ["Graph", "/learn/graph"], ["Trie", "/learn/trie"]]],
   ["Algorithms", Workflow, [["Searching", "/learn/binary-search"], ["Sorting", "/learn/sorting"], ["Recursion", "/learn/recursion"], ["Backtracking", "/learn/backtracking"], ["Greedy", "/learn/greedy"], ["Graph Algorithms", "/learn/bfs"], ["Dynamic Programming", "/learn/dp"]]],
   ["Patterns", BookOpen, [["Which pattern?", "/which"], ["All patterns", "/patterns"], ["Two Pointers", "/learn/two-pointers"], ["Sliding Window", "/learn/sliding-window"], ["Prefix Sum", "/learn/prefix-sum"], ["Binary Search", "/learn/binary-search"], ["Monotonic Stack", "/patterns#monotonic-stack"], ["Heap / Top K", "/patterns#top-k"], ["BFS", "/patterns#bfs"], ["DFS", "/patterns#dfs"], ["DP", "/patterns#dp"]]],
-  ["Problems", ListChecks, [["All problems", "/problems"], ["Easy", "/problems?d=E"], ["Medium", "/problems?d=M"], ["Hard", "/problems?d=H"], ["Interview mode", "/interview"]]],
+  ["Problems", ListChecks, [["All problems", "/problems"], ["Easy", "/problems?d=E"], ["Medium", "/problems?d=M"], ["Hard", "/problems?d=H"], ["Interview mode", "/interview"], ["Submissions", "/submissions"]]],
   ["Revision", Repeat, [["Cheat Sheets", "/revision"], ["Flashcards", "/flashcards"], ["Mistakes", "/mistakes"], ["Progress", "/progress"]]]
 ];
 
@@ -27,7 +27,7 @@ function crumbs(path: string) {
   const [, a, b] = path.split("/");
   if (a === "learn" && b) return <>Learn / <b>{TOPIC[b]?.title || b}</b></>;
   if (a === "problems" && b) return <>Problems / <b>{PROB[b]?.t || b}</b></>;
-  const names: Record<string, string> = { "": "Dashboard", roadmap: "Roadmap", patterns: "Patterns", which: "Which pattern?", framework: "How to solve any problem", problems: "Problems", flashcards: "Flashcards", revision: "Cheat sheets", mistakes: "Mistake notebook", progress: "Progress", playground: "Code playground", login: "Sign in", privacy: "Privacy" };
+  const names: Record<string, string> = { "": "Dashboard", roadmap: "Roadmap", patterns: "Patterns", which: "Which pattern?", framework: "How to solve any problem", problems: "Problems", flashcards: "Flashcards", revision: "Cheat sheets", mistakes: "Mistake notebook", submissions: "Submissions", progress: "Progress", playground: "Code playground", login: "Sign in", privacy: "Privacy" };
   return <b>{names[a] ?? "DSA Dojo"}</b>;
 }
 
@@ -52,6 +52,7 @@ function Sidebar({ s, path, onNavigate }: { s: State; path: string; onNavigate: 
                 right = <span className="st">{n.filter(p => s.ps[p.id] === "solved" || s.ps[p.id] === "revise").length}/{n.length}</span>;
               }
               if (href === "/mistakes" && s.mist.length) right = <span className="st">{s.mist.length}</span>;
+              if (href === "/submissions" && s.hist?.length) right = <span className="st">{s.hist.length}</span>;
               return <Link key={href} href={href} onClick={onNavigate} className={"nav-a" + (path === href ? " on" : "")}>{dot}{label}{right}</Link>;
             })}
           </div>
